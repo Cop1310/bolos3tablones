@@ -507,6 +507,7 @@ function startGame() {
   state.turnTeam = state.firstThrowingTeam;
   state.turnPlayerIdx = 0;
   state.turnDirection = 'arriba';
+  state.turnThrowCountInDirection = 0;
 
   document.getElementById('sbNameA').textContent = state.teamA.name;
   document.getElementById('sbNameB').textContent = state.teamB.name;
@@ -597,7 +598,13 @@ function renderTurn() {
   }
 
   const dirEl = document.getElementById('turnDirection');
-  dirEl.textContent = state.turnDirection === 'arriba' ? 'Para arriba' : 'Para abajo';
+  const throwsPerDirection = getThrowsPerDirectionForCurrentTurn();
+  if (throwsPerDirection > 1) {
+    const currentThrowNum = (state.turnThrowCountInDirection || 0) + 1;
+    dirEl.textContent = `${state.turnDirection === 'arriba' ? 'Para arriba' : 'Para abajo'} — tirada ${currentThrowNum} de ${throwsPerDirection}`;
+  } else {
+    dirEl.textContent = state.turnDirection === 'arriba' ? 'Para arriba' : 'Para abajo';
+  }
   dirEl.className = 'turn-direction ' + state.turnDirection;
 
   document.getElementById('gameRoundLabel').textContent =
@@ -771,8 +778,27 @@ function clearLiveState() {
   db.ref('live/current').update({ active: false }).catch(() => {});
 }
 
+function getThrowsPerDirectionForCurrentTurn() {
+  // In 1vs1 (each team has exactly 1 player), each player throws 2 consecutive
+  // throws per direction instead of 1, to fill the same round structure.
+  const team = currentTeamObj();
+  return team.players.length === 1 ? 2 : 1;
+}
+
 function advanceTurn() {
   const team = currentTeamObj();
+  const throwsPerDirection = getThrowsPerDirectionForCurrentTurn();
+
+  state.turnThrowCountInDirection = (state.turnThrowCountInDirection || 0) + 1;
+
+  if (state.turnThrowCountInDirection < throwsPerDirection) {
+    // Same player throws again in the same direction
+    renderTurn();
+    return;
+  }
+
+  // This player has completed their throws for this direction
+  state.turnThrowCountInDirection = 0;
   const isLastPlayer = state.turnPlayerIdx === team.players.length - 1;
 
   if (!isLastPlayer) {
@@ -822,6 +848,7 @@ function finishRoundForTeam() {
   state.turnTeam = otherTeam;
   state.turnPlayerIdx = 0;
   state.turnDirection = 'arriba';
+  state.turnThrowCountInDirection = 0;
   renderTurn();
 }
 
@@ -1189,9 +1216,11 @@ function showStatsTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('statsTabPartidas').style.display = tab === 'partidas' ? 'block' : 'none';
   document.getElementById('statsTabTotales').style.display = tab === 'totales' ? 'block' : 'none';
+  document.getElementById('statsTabConcurso').style.display = tab === 'concurso' ? 'block' : 'none';
 
   if (tab === 'partidas') renderPartidasList();
-  else renderTotalesDelDia();
+  else if (tab === 'totales') renderTotalesDelDia();
+  else renderConcursoStatsTab();
 }
 
 function renderPartidasList() {
@@ -1507,3 +1536,542 @@ async function adminDeletePlayer(name) {
 }
 
 /* Override continueAfterJuego flow: juego 1 uses coin toss screen, 2+ uses plant screen automatically */
+
+/* ====================================================================
+   MODO CONCURSO — concurso individual con 4 / a bolos
+   ==================================================================== */
+
+const CONCURSO_RULES = {
+  con4:    { maxArriba: 9, maxAbajo: 6, throwsPerDirection: 3, label: 'Concurso con 4' },
+  abolos:  { maxArriba: 6, maxAbajo: 6, throwsPerDirection: 2, label: 'Concurso a bolos' }
+};
+
+let concursoState = {
+  type: null,            // 'con4' | 'abolos'
+  concursoNum: null,
+  players: [],           // [{name, color, photo}]
+  results: {},           // { playerName: { throws: [...], total } }
+  playerOrder: [],
+  currentPlayerIdx: 0,
+  currentDirection: 'arriba',
+  currentThrowCount: 0,
+  currentThrows: [],
+  isTiebreak: false,
+  tiebreakPlayers: []
+};
+
+let concursoSlotsData = [];
+let concursoSharedCount = 4;
+let nextConcursoNum = 1;
+
+async function initConcursoNum() {
+  try {
+    const snap = await db.ref('concursos').get();
+    const concursos = snap.val() || {};
+    const nums = Object.values(concursos).filter(c => c.numero).map(c => c.numero);
+    nextConcursoNum = nums.length ? Math.max(...nums) + 1 : 1;
+  } catch (e) { nextConcursoNum = 1; }
+}
+initConcursoNum();
+
+function goToConcursoTypeSelect() {
+  showScreen('screen-concurso-type');
+}
+
+function selectConcursoType(type) {
+  concursoState.type = type;
+  concursoSharedCount = type === 'con4' ? 4 : 4;
+  document.getElementById('concursoSetupEyebrow').textContent = CONCURSO_RULES[type].label;
+  document.getElementById('concursoCountDisplay').textContent = concursoSharedCount;
+  concursoSlotsData = [];
+  renderConcursoSlots();
+  showScreen('screen-concurso-setup');
+}
+
+function changeConcursoPlayerCount(delta) {
+  concursoSharedCount = Math.max(2, Math.min(12, concursoSharedCount + delta));
+  document.getElementById('concursoCountDisplay').textContent = concursoSharedCount;
+  renderConcursoSlots();
+}
+
+function renderConcursoSlots() {
+  const container = document.getElementById('concursoPlayersList');
+  while (concursoSlotsData.length < concursoSharedCount) concursoSlotsData.push({ name: null });
+  while (concursoSlotsData.length > concursoSharedCount) concursoSlotsData.pop();
+
+  container.innerHTML = '';
+  concursoSlotsData.forEach((slot, i) => {
+    const row = document.createElement('div');
+    row.className = 'player-slot-row';
+    const btn = document.createElement('button');
+    btn.className = 'player-pick-btn' + (slot.name ? '' : ' empty');
+    if (slot.name) {
+      const photo = getPlayerPhoto(slot.name);
+      const photoHtml = photo ? `<img class="player-photo-thumb" src="${photo}">` : `<div class="player-photo-thumb placeholder">👤</div>`;
+      btn.innerHTML = `${photoHtml}<span>${escapeHtmlApp(slot.name)}</span>`;
+    } else {
+      btn.textContent = 'Elegir jugador';
+    }
+    btn.onclick = () => openConcursoPickerModal(i);
+    row.innerHTML = `<span class="concurso-order-num">${i + 1}</span>`;
+    row.appendChild(btn);
+    container.appendChild(row);
+  });
+}
+
+let concursoPickerSlotIndex = null;
+
+function openConcursoPickerModal(slotIndex) {
+  concursoPickerSlotIndex = slotIndex;
+  renderConcursoPickerModal('');
+  document.getElementById('pickerModal').classList.add('visible');
+}
+
+function renderConcursoPickerModal(filterText) {
+  const modal = document.getElementById('pickerModalContent');
+  const allNames = getAllPlayerNames();
+  const taken = new Set(concursoSlotsData.map((s, i) => i !== concursoPickerSlotIndex ? s.name : null).filter(Boolean));
+  const filtered = allNames.filter(n => n.toLowerCase().includes(filterText.toLowerCase()));
+
+  const itemsHtml = filtered.map(name => {
+    const isTaken = taken.has(name);
+    const photo = getPlayerPhoto(name);
+    const photoHtml = photo ? `<img class="photo-thumb-small" src="${photo}">` : `<div class="photo-thumb-small placeholder">👤</div>`;
+    return `
+      <div class="picker-item ${isTaken ? 'disabled' : ''}" onclick="${isTaken ? '' : `selectConcursoPlayer('${escapeJs(name)}')`}">
+        ${photoHtml}<span>${escapeHtmlApp(name)}</span>
+        ${isTaken ? '<span class="taken-tag">ya elegido</span>' : ''}
+      </div>
+    `;
+  }).join('') || '<p style="color:var(--chalk-dim); font-size:0.85rem; padding:10px 0;">Sin resultados.</p>';
+
+  modal.innerHTML = `
+    <h3>Elegir jugador</h3>
+    <input type="text" class="picker-search" placeholder="Buscar jugador..." value="${escapeHtmlApp(filterText)}" oninput="renderConcursoPickerModal(this.value)">
+    <div class="picker-list">${itemsHtml}</div>
+    <div class="new-player-row" style="margin-bottom:10px;">
+      <input type="text" class="text-input" id="newConcursoPlayerName" placeholder="Nombre de jugador nuevo">
+      <button onclick="createAndSelectConcursoPlayer()">Crear</button>
+    </div>
+    <button class="modal-close-btn" onclick="document.getElementById('pickerModal').classList.remove('visible')">Cancelar</button>
+  `;
+}
+
+function selectConcursoPlayer(name) {
+  concursoSlotsData[concursoPickerSlotIndex] = { name };
+  if (!playerColorAssignment[name]) assignColorToPlayer(name);
+  renderConcursoSlots();
+  document.getElementById('pickerModal').classList.remove('visible');
+}
+
+async function createAndSelectConcursoPlayer() {
+  const input = document.getElementById('newConcursoPlayerName');
+  const name = input.value.trim();
+  if (!name) { showToast('⚠️ Escribe un nombre'); return; }
+  const existing = getAllPlayerNames().find(n => n.toLowerCase() === name.toLowerCase());
+  if (existing) { selectConcursoPlayer(existing); return; }
+  await addPlayerToDatabase(name);
+  selectConcursoPlayer(name);
+  showToast('✅ Jugador creado');
+}
+
+function startConcurso() {
+  const names = concursoSlotsData.map(s => s.name);
+  if (names.some(n => !n)) { showToast('⚠️ Elige todos los jugadores'); return; }
+
+  concursoState.concursoNum = nextConcursoNum;
+  concursoState.players = names.map(n => ({ name: n, color: playerColorAssignment[n], photo: getPlayerPhoto(n) }));
+  concursoState.results = {};
+  names.forEach(n => { concursoState.results[n] = { throws: [], total: 0 }; });
+  concursoState.playerOrder = names.slice();
+  concursoState.currentPlayerIdx = 0;
+  concursoState.currentDirection = 'arriba';
+  concursoState.currentThrowCount = 0;
+  concursoState.currentThrows = [];
+  concursoState.isTiebreak = false;
+  concursoState.tiebreakPlayers = [];
+
+  document.getElementById('concursoLiveEyebrow').textContent = CONCURSO_RULES[concursoState.type].label;
+
+  db.ref('concursos/' + concursoState.concursoNum).set({
+    numero: concursoState.concursoNum,
+    type: concursoState.type,
+    fecha: new Date().toISOString(),
+    players: names
+  }).catch(() => {});
+
+  renderConcursoTurn();
+  showScreen('screen-concurso-live');
+}
+
+function getConcursoRules() { return CONCURSO_RULES[concursoState.type]; }
+
+function renderConcursoTurn() {
+  const rules = getConcursoRules();
+  const playerList = concursoState.isTiebreak ? concursoState.tiebreakPlayers : concursoState.playerOrder;
+  const playerName = playerList[concursoState.currentPlayerIdx];
+  const playerObj = concursoState.players.find(p => p.name === playerName);
+
+  document.getElementById('concursoTurnPlayerName').textContent = playerName;
+  document.getElementById('concursoTurnLabel').textContent =
+    (concursoState.isTiebreak ? 'DESEMPATE · ' : '') +
+    `JUGADOR ${concursoState.currentPlayerIdx + 1} DE ${playerList.length}`;
+
+  const turnCard = document.getElementById('concursoTurnCard');
+  turnCard.style.setProperty('--player-color', (playerObj && playerObj.color) || '#c9982f');
+
+  const photoEl = document.getElementById('concursoTurnPhoto');
+  if (playerObj && playerObj.photo) {
+    photoEl.src = playerObj.photo;
+    photoEl.style.display = 'block';
+  } else {
+    photoEl.style.display = 'none';
+  }
+
+  const dirEl = document.getElementById('concursoTurnDirection');
+  const maxThrows = rules.throwsPerDirection;
+  const currentNum = concursoState.currentThrowCount + 1;
+  dirEl.textContent = `${concursoState.currentDirection === 'arriba' ? 'Para arriba' : 'Para abajo'} — tirada ${currentNum} de ${maxThrows}`;
+  dirEl.className = 'turn-direction ' + concursoState.currentDirection;
+
+  document.getElementById('concursoLiveTitle').textContent = `Turno de ${playerName}`;
+
+  const flash = document.getElementById('concursoPartialFlash');
+  if (concursoState.currentThrows.length === 0) {
+    flash.style.display = 'none';
+  } else {
+    const acc = concursoState.currentThrows.reduce((s, t) => s + t.value, 0);
+    flash.style.display = 'block';
+    flash.innerHTML = `Acumulado de ${playerName}: <strong>${acc}</strong>`;
+  }
+
+  renderConcursoPinsGrid();
+  renderConcursoLog();
+}
+
+function renderConcursoPinsGrid() {
+  const rules = getConcursoRules();
+  const grid = document.getElementById('concursoPinsGrid');
+  grid.innerHTML = '';
+  const max = concursoState.currentDirection === 'arriba' ? rules.maxArriba : rules.maxAbajo;
+  grid.className = 'pins-grid' + (max <= 6 ? ' seven' : '');
+  for (let i = 0; i <= max; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'pin-btn';
+    btn.textContent = i;
+    btn.onclick = () => registerConcursoThrow(i);
+    grid.appendChild(btn);
+  }
+}
+
+function renderConcursoLog() {
+  const playerList = concursoState.isTiebreak ? concursoState.tiebreakPlayers : concursoState.playerOrder;
+  const playerName = playerList[concursoState.currentPlayerIdx];
+  document.getElementById('concursoLogTitle').textContent = `Tiradas de ${playerName}`;
+
+  const entries = document.getElementById('concursoLogEntries');
+  entries.innerHTML = '';
+  if (concursoState.currentThrows.length === 0) {
+    entries.innerHTML = '<div class="log-entry"><span class="name" style="opacity:0.5;">Todavía no hay tiradas</span></div>';
+    return;
+  }
+  concursoState.currentThrows.forEach((t, idx) => {
+    const row = document.createElement('div');
+    row.className = 'log-entry';
+    row.innerHTML = `
+      <span class="name">${t.dir === 'arriba' ? '↑' : '↓'} Tirada ${idx + 1}</span>
+      <span style="display:flex; align-items:center; gap:8px;">
+        <span class="val">${t.value}</span>
+        <span class="edit-icon" onclick="openEditConcursoThrowModal(${idx})">✏️</span>
+      </span>
+    `;
+    entries.appendChild(row);
+  });
+}
+
+function registerConcursoThrow(value) {
+  concursoState.currentThrows.push({ dir: concursoState.currentDirection, value });
+  advanceConcursoTurn();
+}
+
+function openEditConcursoThrowModal(idx) {
+  editThrowContext = idx;
+  const t = concursoState.currentThrows[idx];
+  const rules = getConcursoRules();
+  const max = t.dir === 'arriba' ? rules.maxArriba : rules.maxAbajo;
+
+  const modal = document.getElementById('editThrowModalContent');
+  let buttonsHtml = '';
+  for (let i = 0; i <= max; i++) {
+    buttonsHtml += `<button class="pin-btn" style="aspect-ratio:auto; padding:14px 0;" onclick="applyEditConcursoThrow(${i})">${i}</button>`;
+  }
+  modal.innerHTML = `
+    <h3>Corregir tirada (${t.dir === 'arriba' ? 'para arriba' : 'para abajo'})</h3>
+    <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:14px;">Valor actual: <strong style="color:var(--gold)">${t.value}</strong></p>
+    <div class="pins-grid${max <= 6 ? ' seven' : ''}" style="margin-bottom:16px;">${buttonsHtml}</div>
+    <button class="modal-close-btn" onclick="closeEditThrowModal()">Cancelar</button>
+  `;
+  document.getElementById('editThrowModal').classList.add('visible');
+}
+
+function applyEditConcursoThrow(newValue) {
+  concursoState.currentThrows[editThrowContext].value = newValue;
+  closeEditThrowModal();
+  renderConcursoLog();
+  showToast('✅ Tirada corregida');
+}
+
+function advanceConcursoTurn() {
+  const rules = getConcursoRules();
+  concursoState.currentThrowCount++;
+
+  if (concursoState.currentThrowCount < rules.throwsPerDirection) {
+    renderConcursoTurn();
+    return;
+  }
+
+  concursoState.currentThrowCount = 0;
+
+  if (concursoState.currentDirection === 'arriba') {
+    concursoState.currentDirection = 'abajo';
+    renderConcursoTurn();
+    return;
+  }
+
+  // Player finished both directions
+  finishConcursoPlayerTurn();
+}
+
+function finishConcursoPlayerTurn() {
+  const playerList = concursoState.isTiebreak ? concursoState.tiebreakPlayers : concursoState.playerOrder;
+  const playerName = playerList[concursoState.currentPlayerIdx];
+  const total = concursoState.currentThrows.reduce((s, t) => s + t.value, 0);
+
+  if (concursoState.isTiebreak) {
+    concursoState.tiebreakResults = concursoState.tiebreakResults || {};
+    concursoState.tiebreakResults[playerName] = { throws: concursoState.currentThrows.slice(), total };
+  } else {
+    concursoState.results[playerName].throws = concursoState.currentThrows.slice();
+    concursoState.results[playerName].total = total;
+
+    // Persist individual throws for stats
+    concursoState.currentThrows.forEach(t => {
+      db.ref('concursos_throws/' + concursoState.concursoNum).push({
+        concursoNum: concursoState.concursoNum,
+        type: concursoState.type,
+        player: playerName,
+        dir: t.dir,
+        value: t.value,
+        timestamp: Date.now()
+      }).catch(() => {});
+    });
+  }
+
+  concursoState.currentThrows = [];
+  concursoState.currentDirection = 'arriba';
+  concursoState.currentThrowCount = 0;
+
+  const isLastPlayer = concursoState.currentPlayerIdx === playerList.length - 1;
+  if (!isLastPlayer) {
+    concursoState.currentPlayerIdx++;
+    renderConcursoTurn();
+    return;
+  }
+
+  if (concursoState.isTiebreak) {
+    finishTiebreak();
+  } else {
+    finishConcurso();
+  }
+}
+
+function finishConcurso() {
+  const sorted = Object.entries(concursoState.results)
+    .map(([name, r]) => ({ name, total: r.total }))
+    .sort((a, b) => b.total - a.total);
+
+  const topScore = sorted[0].total;
+  const tiedLeaders = sorted.filter(p => p.total === topScore);
+
+  if (tiedLeaders.length > 1) {
+    startTiebreak(tiedLeaders.map(p => p.name));
+    return;
+  }
+
+  saveConcursoResult(sorted);
+  renderConcursoResultScreen(sorted);
+}
+
+function startTiebreak(tiedNames) {
+  concursoState.isTiebreak = true;
+  concursoState.tiebreakPlayers = tiedNames;
+  concursoState.tiebreakResults = {};
+  concursoState.currentPlayerIdx = 0;
+  concursoState.currentDirection = 'arriba';
+  concursoState.currentThrowCount = 0;
+  concursoState.currentThrows = [];
+
+  showToast('🟰 Empate entre los primeros — ronda de desempate');
+  renderConcursoTurn();
+  showScreen('screen-concurso-live');
+}
+
+function finishTiebreak() {
+  const tieResults = Object.entries(concursoState.tiebreakResults)
+    .map(([name, r]) => ({ name, total: r.total }))
+    .sort((a, b) => b.total - a.total);
+
+  // Merge: tiebreak winner(s) take top spots in original order, ties broken by tiebreak score
+  const originalSorted = Object.entries(concursoState.results)
+    .map(([name, r]) => ({ name, total: r.total }))
+    .sort((a, b) => b.total - a.total);
+
+  const tiebreakRank = {};
+  tieResults.forEach((p, i) => { tiebreakRank[p.name] = i; });
+
+  const finalSorted = originalSorted.slice().sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    const aIsTied = tiebreakRank.hasOwnProperty(a.name);
+    const bIsTied = tiebreakRank.hasOwnProperty(b.name);
+    if (aIsTied && bIsTied) return tiebreakRank[a.name] - tiebreakRank[b.name];
+    return 0;
+  });
+
+  saveConcursoResult(finalSorted, tieResults);
+  renderConcursoResultScreen(finalSorted, tieResults);
+}
+
+async function saveConcursoResult(sorted, tiebreakInfo) {
+  try {
+    await db.ref('concursos/' + concursoState.concursoNum).update({
+      finalizado: true,
+      ranking: sorted,
+      ganador: sorted[0].name,
+      tiebreak: tiebreakInfo || null
+    });
+  } catch (e) { console.error(e); }
+  nextConcursoNum = concursoState.concursoNum + 1;
+}
+
+function renderConcursoResultScreen(sorted, tiebreakInfo) {
+  const tieBanner = document.getElementById('concursoTieBanner');
+  if (tiebreakInfo) {
+    tieBanner.style.display = 'block';
+    tieBanner.innerHTML = `<div class="tie-banner">🟰 Hubo empate en el primer puesto, resuelto con ronda de desempate</div>`;
+  } else {
+    tieBanner.style.display = 'none';
+  }
+
+  const list = document.getElementById('concursoRankingList');
+  list.innerHTML = sorted.map((p, idx) => {
+    const playerObj = concursoState.players.find(pl => pl.name === p.name);
+    const photo = playerObj && playerObj.photo;
+    const photoHtml = photo ? `<img class="ranking-photo" src="${photo}">` : `<div class="ranking-photo placeholder">👤</div>`;
+    return `
+      <div class="ranking-item ${idx === 0 ? 'winner' : ''}">
+        <span class="ranking-pos">${idx + 1}</span>
+        ${photoHtml}
+        <span class="ranking-name">${escapeHtmlApp(p.name)}</span>
+        <span class="ranking-total">${p.total}</span>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('concursoMvpContainer').innerHTML = `
+    <div class="mvp-banner">
+      <div class="mvp-label">🏅 Ganador del concurso</div>
+      <div class="mvp-name">${escapeHtmlApp(sorted[0].name)}</div>
+      <div class="mvp-count">${sorted[0].total} bolos</div>
+    </div>
+  `;
+
+  showScreen('screen-concurso-result');
+}
+
+function confirmAbandonConcurso() {
+  if (confirm('¿Seguro que quieres salir? Se perderá el progreso de este concurso.')) {
+    goHome();
+  }
+}
+
+/* ============== CONCURSO STATS ============== */
+let allConcursosCache = {};
+let allConcursoThrowsCache = {};
+
+async function loadConcursoStatsData() {
+  try {
+    const snap = await db.ref('concursos').get();
+    allConcursosCache = snap.val() || {};
+  } catch (e) { allConcursosCache = {}; }
+
+  try {
+    const snap = await db.ref('concursos_throws').get();
+    const all = snap.val() || {};
+    allConcursoThrowsCache = {};
+    Object.values(all).forEach(concursoThrows => Object.assign(allConcursoThrowsCache, concursoThrows));
+  } catch (e) { allConcursoThrowsCache = {}; }
+}
+
+async function renderConcursoStatsTab() {
+  await loadConcursoStatsData();
+  const container = document.getElementById('statsTabConcurso');
+
+  const concursos = Object.entries(allConcursosCache)
+    .map(([id, c]) => ({ id, ...c }))
+    .filter(c => c.numero)
+    .sort((a, b) => (b.numero || 0) - (a.numero || 0));
+
+  if (concursos.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">🏅</div><p>Todavía no se ha jugado ningún concurso</p></div>`;
+    return;
+  }
+
+  container.innerHTML = concursos.map(c => {
+    const fecha = c.fecha ? new Date(c.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '';
+    const ruleLabel = CONCURSO_RULES[c.type] ? CONCURSO_RULES[c.type].label : c.type;
+    const winnerHtml = c.finalizado ? `<span class="pc-winner">Gana ${escapeHtmlApp(c.ganador)}</span>` : `<span style="color:var(--chalk-dim)">En curso</span>`;
+    return `
+      <div class="partida-card" onclick="showConcursoDetail(${c.numero})">
+        <div class="pc-top"><span class="pc-num">${ruleLabel} #${c.numero}</span><span class="pc-date">${fecha}</span></div>
+        <div class="pc-teams">${(c.players || []).length} jugadores</div>
+        <div style="margin-top:6px;">${winnerHtml}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function showConcursoDetail(numero) {
+  const c = Object.values(allConcursosCache).find(x => x.numero === numero);
+  if (!c) return;
+  const modal = document.getElementById('detailModalContent');
+  const ruleLabel = CONCURSO_RULES[c.type] ? CONCURSO_RULES[c.type].label : c.type;
+
+  const rankingHtml = (c.ranking || []).map((p, idx) => `
+    <div class="juego-detail-row">
+      <span>${idx + 1}. ${escapeHtmlApp(p.name)}</span>
+      <span style="color:var(--gold); font-weight:700;">${p.total}</span>
+    </div>
+  `).join('') || '<p style="color:var(--chalk-dim); font-size:0.85rem;">Sin resultados.</p>';
+
+  const deleteBtnHtml = isAdminMode
+    ? `<button class="danger-action" onclick="adminDeleteConcurso(${numero})">🗑️ Borrar este concurso</button>`
+    : '';
+
+  modal.innerHTML = `
+    <h3>${ruleLabel} #${numero}</h3>
+    ${rankingHtml}
+    ${deleteBtnHtml}
+    <button class="modal-close-btn" onclick="closeDetailModal()">Cerrar</button>
+  `;
+  document.getElementById('detailModal').classList.add('visible');
+}
+
+async function adminDeleteConcurso(numero) {
+  if (!isAdminMode) { showToast('⚠️ Necesitas modo administrador'); return; }
+  if (!confirm(`¿Borrar el concurso ${numero}?`)) return;
+  await db.ref('concursos/' + numero).remove();
+  await db.ref('concursos_throws/' + numero).remove();
+  closeDetailModal();
+  showToast('🗑️ Concurso borrado');
+  renderConcursoStatsTab();
+}

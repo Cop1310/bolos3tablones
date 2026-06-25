@@ -770,6 +770,80 @@
     font-size: 0.78rem;
     color: var(--chalk-dim);
   }
+
+  /* ===== Concurso mode ===== */
+  .concurso-type-card {
+    background: linear-gradient(135deg, var(--wood-mid), var(--wood-dark));
+    border: 1px solid var(--wood-light);
+    border-radius: 14px;
+    padding: 22px 18px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .concurso-type-card:active { transform: scale(0.98); }
+  .concurso-type-card .ct-icon { font-size: 2rem; margin-bottom: 10px; }
+  .concurso-type-card h3 { font-size: 1.1rem; color: var(--chalk); margin-bottom: 6px; }
+  .concurso-type-card p { font-size: 0.78rem; color: var(--chalk-dim); }
+
+  .concurso-player-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+
+  .concurso-player-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .concurso-order-num {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--wood-mid); color: var(--gold);
+    font-size: 0.8rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .ranking-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .ranking-item.winner {
+    background: linear-gradient(135deg, rgba(201,152,47,0.18), rgba(201,152,47,0.05));
+    border: 1.5px solid var(--gold);
+  }
+  .ranking-pos {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--wood-dark); color: var(--gold);
+    font-weight: 900; font-size: 0.95rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ranking-item.winner .ranking-pos { background: var(--gold); color: var(--bark); }
+  .ranking-photo {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    border: 2px solid var(--wood-light);
+  }
+  .ranking-photo.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 1rem;
+  }
+  .ranking-name { flex: 1; font-size: 0.95rem; font-weight: 700; }
+  .ranking-total { font-size: 1.2rem; font-weight: 900; color: var(--gold); font-family: 'Courier New', monospace; }
+
+  .tie-banner {
+    background: rgba(168,71,47,0.15);
+    border: 1px solid var(--rust);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: #e89a85;
+  }
 </style>
 </head>
 <body>
@@ -792,6 +866,10 @@
       <button class="menu-btn primary" onclick="goToSetup()">
         <span class="icon">🎯</span>
         <span class="label-block"><strong>Nueva partida</strong><span>configurar equipos y empezar a tirar</span></span>
+      </button>
+      <button class="menu-btn primary" onclick="goToConcursoTypeSelect()">
+        <span class="icon">🏅</span>
+        <span class="label-block"><strong>Modo concurso</strong><span>concurso con 4 o a bolos, individual</span></span>
       </button>
       <button class="menu-btn" id="liveViewBtn" style="display:none;" onclick="goToLiveView()">
         <span class="icon">📡</span>
@@ -1037,6 +1115,96 @@
 <div class="admin-badge" id="adminBadge">🔧 MODO ADMIN</div>
 
 <!-- ============================================================ -->
+<!-- SCREEN: CONCURSO - TYPE SELECT -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-concurso-type">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h1>Modo concurso</h1>
+  </div>
+  <div class="content">
+    <div class="concurso-type-card" onclick="selectConcursoType('con4')">
+      <div class="ct-icon">🎯</div>
+      <h3>Concurso con 4</h3>
+      <p>3 tiradas arriba (0-9) + 3 tiradas abajo (0-6) por jugador</p>
+    </div>
+    <div class="concurso-type-card" onclick="selectConcursoType('abolos')">
+      <div class="ct-icon">🎳</div>
+      <h3>Concurso a bolos</h3>
+      <p>2 tiradas arriba (0-6) + 2 tiradas abajo (0-6) por jugador</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: CONCURSO - SETUP -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-concurso-setup">
+  <div class="app-header">
+    <button class="back-btn" onclick="goToConcursoTypeSelect()">←</button>
+    <div class="eyebrow" id="concursoSetupEyebrow">Concurso con 4</div>
+    <h1>Elegir jugadores</h1>
+  </div>
+  <div class="content">
+    <div class="field-group">
+      <span class="field-label">Número de jugadores</span>
+      <div class="stepper">
+        <button onclick="changeConcursoPlayerCount(-1)">−</button>
+        <span class="count" id="concursoCountDisplay">4</span>
+        <button onclick="changeConcursoPlayerCount(1)">+</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <span class="field-label">Jugadores (orden de tirada)</span>
+      <div id="concursoPlayersList"></div>
+    </div>
+    <button class="primary-action" onclick="startConcurso()">Empezar concurso →</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: CONCURSO - LIVE -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-concurso-live">
+  <div class="app-header">
+    <button class="back-btn" onclick="confirmAbandonConcurso()">←</button>
+    <div class="eyebrow" id="concursoLiveEyebrow">Concurso con 4</div>
+    <h1 id="concursoLiveTitle">Turno de Joseba</h1>
+  </div>
+  <div class="content">
+    <div class="turn-card" id="concursoTurnCard">
+      <img class="turn-card-photo placeholder" id="concursoTurnPhoto" style="display:none;">
+      <div class="turn-team-label" id="concursoTurnLabel">JUGADOR 2 DE 6</div>
+      <div class="turn-player-name" id="concursoTurnPlayerName">Joseba</div>
+      <span class="turn-direction arriba" id="concursoTurnDirection">Para arriba</span>
+      <div class="partial-score-flash" id="concursoPartialFlash" style="display:none;"></div>
+    </div>
+
+    <div class="pins-grid" id="concursoPinsGrid"></div>
+
+    <div class="round-log">
+      <div class="round-log-title" id="concursoLogTitle">Tiradas de este jugador</div>
+      <div id="concursoLogEntries"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: CONCURSO - RESULT / RANKING -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-concurso-result">
+  <div class="app-header">
+    <h1>Clasificación final</h1>
+  </div>
+  <div class="content">
+    <div id="concursoTieBanner" style="display:none;"></div>
+    <div id="concursoRankingList"></div>
+    <div id="concursoMvpContainer"></div>
+    <button class="primary-action" onclick="goHome()">Volver al inicio</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- SCREEN: GAME RESULT -->
 <!-- ============================================================ -->
 <div class="screen" id="screen-juego-result">
@@ -1087,9 +1255,11 @@
     <div class="stats-tabs">
       <button class="stats-tab active" onclick="showStatsTab('partidas', this)">Partidas</button>
       <button class="stats-tab" onclick="showStatsTab('totales', this)">Totales del día</button>
+      <button class="stats-tab" onclick="showStatsTab('concurso', this)">Modo concurso</button>
     </div>
     <div id="statsTabPartidas"></div>
     <div id="statsTabTotales" style="display:none"></div>
+    <div id="statsTabConcurso" style="display:none"></div>
   </div>
 </div>
 
