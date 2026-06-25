@@ -82,6 +82,7 @@ async function initApp() {
   renderTeamSlots('B');
 }
 initApp();
+checkLiveGameOnHome();
 
 async function loadPlayerDatabase() {
   try {
@@ -110,10 +111,46 @@ function getAllPlayerNames() {
   return Object.values(playerDatabase).map(p => p.name).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
+function findPlayerIdByName(name) {
+  return Object.keys(playerDatabase).find(id => playerDatabase[id].name === name) || null;
+}
+
+function getPlayerPhoto(name) {
+  const id = findPlayerIdByName(name);
+  return id && playerDatabase[id].photo ? playerDatabase[id].photo : null;
+}
+
 async function addPlayerToDatabase(name) {
   const id = db.ref('jugadores').push().key;
   await db.ref('jugadores/' + id).set({ name });
   playerDatabase[id] = { name };
+  return id;
+}
+
+async function savePlayerPhoto(name, photoDataUrl) {
+  const id = findPlayerIdByName(name);
+  if (!id) return;
+  await db.ref('jugadores/' + id).update({ photo: photoDataUrl });
+  playerDatabase[id].photo = photoDataUrl;
+}
+
+function resizePlayerPhoto(file, callback) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 180;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > maxSize) { h = h * (maxSize / w); w = maxSize; } }
+      else { if (h > maxSize) { w = w * (maxSize / h); h = maxSize; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 /* ============== NAVIGATION ============== */
@@ -123,7 +160,10 @@ function showScreen(id) {
   window.scrollTo(0, 0);
 }
 
-function goHome() { showScreen('screen-home'); }
+function goHome() {
+  showScreen('screen-home');
+  checkLiveGameOnHome();
+}
 
 function goToSetup() {
   document.getElementById('setupPartidaNum').textContent = nextPartidaNum;
@@ -153,7 +193,6 @@ let teamSlotsData = { A: [], B: [] };
 
 function renderTeamSlots(team) {
   const container = document.getElementById('players' + team);
-  // Adjust array length to sharedPlayerCount, preserving existing picks
   const arr = teamSlotsData[team];
   while (arr.length < sharedPlayerCount) arr.push({ name: null });
   while (arr.length > sharedPlayerCount) arr.pop();
@@ -162,14 +201,53 @@ function renderTeamSlots(team) {
   arr.forEach((slot, i) => {
     const row = document.createElement('div');
     row.className = 'player-slot-row';
+
     const btn = document.createElement('button');
     btn.className = 'player-pick-btn' + (slot.name ? '' : ' empty');
-    btn.textContent = slot.name || (i === arr.length - 1 ? 'Elegir jugador (hombre responsable)' : 'Elegir jugador');
     btn.onclick = () => openPickerModal(team, i);
+
+    if (slot.name) {
+      const photo = getPlayerPhoto(slot.name);
+      const photoHtml = photo
+        ? `<img class="player-photo-thumb" src="${photo}">`
+        : `<div class="player-photo-thumb placeholder">👤</div>`;
+      btn.innerHTML = `${photoHtml}<span>${escapeHtmlApp(slot.name)}</span>`;
+    } else {
+      btn.textContent = i === arr.length - 1 ? 'Elegir jugador (hombre responsable)' : 'Elegir jugador';
+    }
+
     row.innerHTML = `<span class="player-order-num">${i + 1}</span>`;
     row.appendChild(btn);
+
+    if (slot.name) {
+      const photoBtn = document.createElement('button');
+      photoBtn.className = 'header-action-btn';
+      photoBtn.style.position = 'static';
+      photoBtn.style.flexShrink = '0';
+      photoBtn.textContent = '📷';
+      photoBtn.onclick = () => openPlayerPhotoUpload(slot.name);
+      row.appendChild(photoBtn);
+    }
+
     container.appendChild(row);
   });
+}
+
+function openPlayerPhotoUpload(playerName) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    resizePlayerPhoto(file, async (dataUrl) => {
+      await savePlayerPhoto(playerName, dataUrl);
+      renderTeamSlots('A');
+      renderTeamSlots('B');
+      showToast('✅ Foto guardada para ' + playerName);
+    });
+  };
+  input.click();
 }
 
 /* ============== PLAYER PICKER MODAL ============== */
@@ -203,8 +281,13 @@ function renderPickerModal(filterText) {
 
   const itemsHtml = filtered.map(name => {
     const isTaken = taken.has(name);
+    const photo = getPlayerPhoto(name);
+    const photoHtml = photo
+      ? `<img class="photo-thumb-small" src="${photo}">`
+      : `<div class="photo-thumb-small placeholder">👤</div>`;
     return `
       <div class="picker-item ${isTaken ? 'disabled' : ''}" onclick="${isTaken ? '' : `selectPlayerForSlot('${escapeJs(name)}')`}">
+        ${photoHtml}
         <span>${escapeHtmlApp(name)}</span>
         ${isTaken ? '<span class="taken-tag">ya elegido</span>' : ''}
       </div>
@@ -215,18 +298,12 @@ function renderPickerModal(filterText) {
     <h3>Elegir jugador</h3>
     <input type="text" class="picker-search" id="pickerSearchInput" placeholder="Buscar jugador..." value="${escapeHtmlApp(filterText)}" oninput="renderPickerModal(this.value)">
     <div class="picker-list">${itemsHtml}</div>
-    <div class="new-player-row">
+    <div class="new-player-row" style="margin-bottom:10px;">
       <input type="text" class="text-input" id="newPlayerNameInput" placeholder="Nombre de jugador nuevo">
       <button onclick="createAndSelectPlayer()">Crear</button>
     </div>
     <button class="modal-close-btn" onclick="closePickerModal()">Cancelar</button>
   `;
-
-  // Keep focus on search if re-rendering due to typing
-  const searchInput = document.getElementById('pickerSearchInput');
-  if (document.activeElement !== searchInput) {
-    // no-op, avoid stealing focus unexpectedly on first open
-  }
 }
 
 function selectPlayerForSlot(name) {
@@ -278,8 +355,8 @@ function goToCoinToss() {
   }
 
   state.partidaNum = nextPartidaNum;
-  state.teamA = { name: 'Equipo de ' + playersA[playersA.length - 1], players: playersA.map(n => ({ name: n, color: playerColorAssignment[n] })) };
-  state.teamB = { name: 'Equipo de ' + playersB[playersB.length - 1], players: playersB.map(n => ({ name: n, color: playerColorAssignment[n] })) };
+  state.teamA = { name: 'Equipo de ' + playersA[playersA.length - 1], players: playersA.map(n => ({ name: n, color: playerColorAssignment[n], photo: getPlayerPhoto(n) })) };
+  state.teamB = { name: 'Equipo de ' + playersB[playersB.length - 1], players: playersB.map(n => ({ name: n, color: playerColorAssignment[n], photo: getPlayerPhoto(n) })) };
   state.juegoNum = 1;
   state.juegosGanados = { A: 0, B: 0 };
   state.juegoHistory = [];
@@ -452,6 +529,15 @@ function renderTurn() {
   const turnCard = document.getElementById('turnCard');
   turnCard.style.setProperty('--player-color', player.color || '#c9982f');
 
+  const photoEl = document.getElementById('turnPlayerPhoto');
+  if (player.photo) {
+    photoEl.src = player.photo;
+    photoEl.style.display = 'block';
+    photoEl.classList.remove('placeholder');
+  } else {
+    photoEl.style.display = 'none';
+  }
+
   const dirEl = document.getElementById('turnDirection');
   dirEl.textContent = state.turnDirection === 'arriba' ? 'Para arriba' : 'Para abajo';
   dirEl.className = 'turn-direction ' + state.turnDirection;
@@ -459,8 +545,21 @@ function renderTurn() {
   document.getElementById('gameRoundLabel').textContent =
     `${team.name} — ${state.turnDirection === 'arriba' ? 'tirada hacia arriba' : 'tirada hacia abajo'}`;
 
+  updatePartialScoreFlash();
   renderPinsGrid();
   renderRoundLog();
+  syncLiveState();
+}
+
+function updatePartialScoreFlash() {
+  const flash = document.getElementById('partialScoreFlash');
+  if (state.currentRoundThrows.length === 0) {
+    flash.style.display = 'none';
+    return;
+  }
+  const accumulated = state.currentRoundThrows.reduce((s, t) => s + t.value, 0);
+  flash.style.display = 'block';
+  flash.innerHTML = `Acumulado en esta ronda: <strong>${accumulated}</strong>`;
 }
 
 function renderPinsGrid() {
@@ -520,7 +619,42 @@ function registerThrow(value) {
     timestamp: Date.now()
   }).catch(() => {});
 
+  updatePartialScoreFlash();
+  renderRoundLog();
+  syncLiveState();
   advanceTurn();
+}
+
+/* ============== LIVE SYNC (for spectators) ============== */
+function syncLiveState() {
+  if (!state.partidaNum) return;
+  const team = currentTeamObj();
+  const player = team.players[state.turnPlayerIdx];
+  const accumulated = state.currentRoundThrows.reduce((s, t) => s + t.value, 0);
+
+  db.ref('live/current').set({
+    partidaNum: state.partidaNum,
+    teamAName: state.teamA.name,
+    teamBName: state.teamB.name,
+    scoreA: getTeamTotalThisJuego('A'),
+    scoreB: getTeamTotalThisJuego('B'),
+    juegoNum: state.juegoNum,
+    roundNumA: state.roundNumberForTeam.A,
+    roundNumB: state.roundNumberForTeam.B,
+    turnTeam: state.turnTeam,
+    turnTeamName: team.name,
+    turnPlayerName: player.name,
+    turnDirection: state.turnDirection,
+    roundAccumulated: accumulated,
+    currentRoundThrows: state.currentRoundThrows,
+    juegoHistory: state.juegoHistory,
+    active: true,
+    updatedAt: Date.now()
+  }).catch(() => {});
+}
+
+function clearLiveState() {
+  db.ref('live/current').update({ active: false }).catch(() => {});
 }
 
 function advanceTurn() {
@@ -668,9 +802,94 @@ function movePlayer(teamLetter, index, direction) {
   showToast('✅ Orden actualizado');
 }
 
-/* ============== END OF JUEGO / PARTIDA ============== */
+/* ============== LIVE VIEW (spectator mode) ============== */
+let liveViewListener = null;
+
+async function checkLiveGameOnHome() {
+  try {
+    const snap = await db.ref('live/current').get();
+    const live = snap.val();
+    const btn = document.getElementById('liveViewBtn');
+    if (live && live.active) {
+      btn.style.display = 'flex';
+      document.getElementById('liveViewSubtitle').textContent = `Partida ${live.partidaNum} — ${live.teamAName} vs ${live.teamBName}`;
+    } else {
+      btn.style.display = 'none';
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function goToLiveView() {
+  showScreen('screen-liveview');
+  if (liveViewListener) db.ref('live/current').off('value', liveViewListener);
+  liveViewListener = (snap) => {
+    const live = snap.val();
+    if (!live || !live.active) {
+      showToast('La partida ha terminado');
+      leaveLiveView();
+      return;
+    }
+    renderLiveView(live);
+  };
+  db.ref('live/current').on('value', liveViewListener);
+}
+
+function leaveLiveView() {
+  if (liveViewListener) {
+    db.ref('live/current').off('value', liveViewListener);
+    liveViewListener = null;
+  }
+  goHome();
+}
+
+function renderLiveView(live) {
+  document.getElementById('lvPartidaNum').textContent = live.partidaNum;
+  document.getElementById('lvNameA').textContent = live.teamAName;
+  document.getElementById('lvNameB').textContent = live.teamBName;
+  document.getElementById('lvScoreA').textContent = live.scoreA;
+  document.getElementById('lvScoreB').textContent = live.scoreB;
+  document.getElementById('lvRoundLabel').textContent = `Juego ${live.juegoNum} — ${live.turnTeamName}`;
+
+  const banner = document.getElementById('lvLlevarBanner');
+  if (live.roundNumA > 0 && live.roundNumA === live.roundNumB) {
+    const diff = live.scoreA - live.scoreB;
+    banner.style.display = 'block';
+    banner.textContent = diff === 0
+      ? `Empatados a ${live.scoreA} bolos`
+      : `${diff > 0 ? live.teamAName : live.teamBName} lleva ${Math.abs(diff)} bolos`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  const strip = document.getElementById('lvHistoryStrip');
+  strip.innerHTML = (live.juegoHistory || []).map((g, idx) => {
+    const winnerName = g.winner === 'A' ? live.teamAName : live.teamBName;
+    return `<span class="game-pill ${g.winner === 'A' ? 'won-a' : 'won-b'}">J${idx+1}: ${winnerName.replace('Equipo de ','')} (${g.scoreA}-${g.scoreB})</span>`;
+  }).join('');
+
+  document.getElementById('lvTurnTeamLabel').textContent = `TIRA ${live.turnTeamName.toUpperCase()}`;
+  document.getElementById('lvTurnPlayerName').textContent = live.turnPlayerName;
+  const dirEl = document.getElementById('lvTurnDirection');
+  dirEl.textContent = live.turnDirection === 'arriba' ? 'Para arriba' : 'Para abajo';
+  dirEl.className = 'turn-direction ' + live.turnDirection;
+
+  document.getElementById('lvRoundLogTitle').textContent = `Tiradas de esta ronda — ${live.turnTeamName}`;
+  const entries = document.getElementById('lvRoundLogEntries');
+  const throws = live.currentRoundThrows || [];
+  if (throws.length === 0) {
+    entries.innerHTML = '<div class="log-entry"><span class="name" style="opacity:0.5;">Todavía no hay tiradas en esta ronda</span></div>';
+  } else {
+    entries.innerHTML = throws.map(t => `
+      <div class="log-entry">
+        <span class="name"><span class="log-color-chip" style="background:${t.color || '#c9982f'}"></span>${escapeHtmlApp(t.player)} (${t.dir === 'arriba' ? '↑' : '↓'})</span>
+        <span class="val">${t.value}</span>
+      </div>
+    `).join('');
+  }
+}
 function endJuego(winnerTeam, totalA, totalB) {
   state.juegosGanados[winnerTeam]++;
+  const allThrowsThisJuego = state.rounds.flatMap(r => r.throws);
   state.juegoHistory.push({ winner: winnerTeam, scoreA: totalA, scoreB: totalB, rounds: state.rounds.slice() });
 
   saveJuegoToFirebase(winnerTeam, totalA, totalB);
@@ -680,6 +899,7 @@ function endJuego(winnerTeam, totalA, totalB) {
   document.getElementById('jrWinnerName').textContent = `Gana ${winnerName}`;
   document.getElementById('jrScoreText').textContent = `${totalA} - ${totalB}`;
   renderGameHistoryStrip('jrHistoryStrip');
+  renderMvpBanner('jrMvpContainer', allThrowsThisJuego);
 
   const matchDecided = state.juegosGanados.A >= 2 || state.juegosGanados.B >= 2;
   document.getElementById('jrContinueBtn').textContent = matchDecided ? 'Ver resultado de la partida →' : 'Siguiente juego →';
@@ -736,6 +956,9 @@ async function finishPartida() {
   document.getElementById('prWinnerName').textContent = winnerName;
   document.getElementById('prScoreText').textContent = `Gana la partida ${state.juegosGanados.A}-${state.juegosGanados.B}`;
   renderGameHistoryStrip('prHistoryStrip');
+  renderMvpBanner('prMvpContainer', getAllThrowsForPartida());
+
+  clearLiveState();
 
   nextPartidaNum = state.partidaNum + 1;
   // reset team slots/colors for next match
@@ -744,8 +967,49 @@ async function finishPartida() {
   showScreen('screen-partida-result');
 }
 
+function getAllThrowsForPartida() {
+  const all = [];
+  state.juegoHistory.forEach(g => {
+    g.rounds.forEach(r => all.push(...r.throws));
+  });
+  return all;
+}
+
+function calculateMvp(throwsArray) {
+  const totals = {};
+  const photos = {};
+  throwsArray.forEach(t => {
+    totals[t.player] = (totals[t.player] || 0) + t.value;
+    if (t.player && !photos[t.player]) photos[t.player] = getPlayerPhoto(t.player);
+  });
+  const names = Object.keys(totals);
+  if (names.length === 0) return null;
+  const best = names.reduce((a, b) => totals[a] >= totals[b] ? a : b);
+  return { name: best, total: totals[best], photo: photos[best] };
+}
+
+function renderMvpBanner(containerId, throwsArray) {
+  const container = document.getElementById(containerId);
+  const mvp = calculateMvp(throwsArray);
+  if (!mvp) { container.innerHTML = ''; return; }
+
+  const photoHtml = mvp.photo
+    ? `<img class="mvp-photo" src="${mvp.photo}">`
+    : `<div class="mvp-photo placeholder">⭐</div>`;
+
+  container.innerHTML = `
+    <div class="mvp-banner">
+      <div class="mvp-label">⭐ MVP</div>
+      ${photoHtml}
+      <div class="mvp-name">${escapeHtmlApp(mvp.name)}</div>
+      <div class="mvp-count">${mvp.total} bolos tirados</div>
+    </div>
+  `;
+}
+
 function confirmAbandon() {
   if (confirm('¿Seguro que quieres salir? Se perderá el progreso de este juego (lo ya guardado de juegos anteriores se mantiene).')) {
+    clearLiveState();
     goHome();
   }
 }

@@ -128,7 +128,33 @@
   }
 
   /* ===== Home screen ===== */
-  .home-hero { text-align: center; padding: 30px 10px 10px; }
+  .cover-photo-wrap {
+    width: 100%;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    position: relative;
+    border-bottom: 3px solid var(--gold);
+  }
+  .cover-photo-wrap img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    filter: saturate(1.05) contrast(1.02);
+  }
+  .cover-photo-wrap::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(28,18,9,0.05) 0%, rgba(28,18,9,0.75) 100%);
+  }
+  .cover-caption {
+    position: absolute;
+    bottom: 10px; left: 16px; right: 16px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--chalk-dim);
+    z-index: 2;
+  }
+
+  .home-hero { text-align: center; padding: 22px 10px 10px; }
 
   .bolo-icon-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
 
@@ -563,6 +589,105 @@
   .reorder-move-btns button:disabled { opacity: 0.25; }
 
   .reorder-team-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); margin: 16px 0 8px; }
+
+  /* ===== Player photos ===== */
+  .player-pick-btn { display: flex; align-items: center; gap: 10px; }
+  .player-photo-thumb {
+    width: 34px; height: 34px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    border: 2px solid var(--player-color, var(--wood-light));
+  }
+  .player-photo-thumb.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 0.85rem;
+  }
+
+  .turn-card-photo {
+    width: 72px; height: 72px; border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--player-color, var(--gold));
+    margin: 0 auto 10px;
+    display: block;
+  }
+  .turn-card-photo.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 1.6rem;
+  }
+
+  .picker-item .photo-thumb-small {
+    width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+  }
+  .picker-item .photo-thumb-small.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 0.7rem;
+  }
+
+  .photo-upload-section {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+  }
+  .photo-upload-preview {
+    width: 50px; height: 50px; border-radius: 50%;
+    object-fit: cover; flex-shrink: 0;
+    border: 2px solid var(--wood-light);
+  }
+  .photo-upload-preview.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 1.2rem;
+  }
+  .photo-upload-btn {
+    flex: 1;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px dashed var(--wood-light);
+    border-radius: 8px;
+    color: var(--chalk-dim);
+    font-size: 0.78rem;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ===== Live indicator ===== */
+  .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--rust);
+    margin-right: 6px;
+    animation: pulse-live 1.4s infinite;
+  }
+  @keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .partial-score-flash {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--chalk-dim);
+    margin-top: 8px;
+    padding: 6px;
+  }
+  .partial-score-flash strong { color: var(--gold); font-size: 0.95rem; }
+
+  /* ===== MVP banner ===== */
+  .mvp-banner {
+    background: linear-gradient(135deg, rgba(201,152,47,0.18), rgba(201,152,47,0.05));
+    border: 1.5px solid var(--gold);
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+    margin: 18px 0;
+  }
+  .mvp-banner .mvp-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 8px; }
+  .mvp-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid var(--gold); margin: 0 auto 10px; display: block; }
+  .mvp-photo.placeholder { display: flex; align-items: center; justify-content: center; background: var(--wood-mid); color: var(--gold); font-size: 1.5rem; }
+  .mvp-name { font-size: 1.15rem; font-weight: 700; color: var(--chalk); }
+  .mvp-count { font-size: 0.78rem; color: var(--chalk-dim); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -571,22 +696,24 @@
 <!-- SCREEN: HOME -->
 <!-- ============================================================ -->
 <div class="screen active" id="screen-home">
-  <div class="app-header">
+  <div class="cover-photo-wrap">
+    <img src="img/bolera_banner.jpg" alt="Bolera de las Merindades de Burgos">
+    <div class="cover-caption">Merindades de Burgos</div>
+  </div>
+  <div class="app-header" style="border-top:none;">
     <div class="sync-dot" id="syncDot"></div>
-    <div class="eyebrow">Merindades de Burgos</div>
     <h1>Bolos a 3 Tablones</h1>
     <div class="sub">marcador y estadísticas</div>
   </div>
   <div class="content">
-    <div class="home-hero">
-      <div class="bolo-icon-row">
-        <div class="bolo-pin"></div><div class="bolo-pin"></div><div class="bolo-pin"></div>
-      </div>
-    </div>
     <div class="menu-list">
       <button class="menu-btn primary" onclick="goToSetup()">
         <span class="icon">🎯</span>
         <span class="label-block"><strong>Nueva partida</strong><span>configurar equipos y empezar a tirar</span></span>
+      </button>
+      <button class="menu-btn" id="liveViewBtn" style="display:none;" onclick="goToLiveView()">
+        <span class="icon">📡</span>
+        <span class="label-block"><strong><span class="live-dot"></span>Ver partida en directo</strong><span id="liveViewSubtitle">partida en curso ahora mismo</span></span>
       </button>
       <button class="menu-btn" onclick="goToStats()">
         <span class="icon">📊</span>
@@ -709,9 +836,11 @@
     </div>
 
     <div class="turn-card" id="turnCard">
+      <img class="turn-card-photo placeholder" id="turnPlayerPhoto" style="display:none;">
       <div class="turn-team-label" id="turnTeamLabel">TIRA EQUIPO A</div>
       <div class="turn-player-name" id="turnPlayerName">Jugador 1</div>
       <span class="turn-direction arriba" id="turnDirection">Para arriba</span>
+      <div class="partial-score-flash" id="partialScoreFlash" style="display:none;"></div>
     </div>
 
     <div class="pins-grid" id="pinsGrid"></div>
@@ -721,6 +850,43 @@
       <div id="roundLogEntries"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: LIVE VIEW (read-only, for spectators) -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-liveview">
+  <div class="app-header">
+    <button class="back-btn" onclick="leaveLiveView()">←</button>
+    <div class="eyebrow"><span class="live-dot"></span>EN DIRECTO · Partida <span id="lvPartidaNum">1</span></div>
+    <h1 id="lvRoundLabel">Siguiendo la partida</h1>
+  </div>
+  <div class="content">
+    <div class="scoreboard">
+      <div class="sb-row">
+        <span class="sb-team-name"><span class="team-color-dot a"></span><span id="lvNameA">Equipo A</span></span>
+        <span class="sb-score" id="lvScoreA">0</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-row">
+        <span class="sb-team-name"><span class="team-color-dot b"></span><span id="lvNameB">Equipo B</span></span>
+        <span class="sb-score" id="lvScoreB">0</span>
+      </div>
+      <div class="llevar-banner" id="lvLlevarBanner" style="display:none"></div>
+      <div class="game-history-strip" id="lvHistoryStrip"></div>
+    </div>
+
+    <div class="turn-card" id="lvTurnCard">
+      <div class="turn-team-label" id="lvTurnTeamLabel">TIRA EQUIPO A</div>
+      <div class="turn-player-name" id="lvTurnPlayerName">Jugador 1</div>
+      <span class="turn-direction arriba" id="lvTurnDirection">Para arriba</span>
+    </div>
+
+    <div class="round-log">
+      <div class="round-log-title" id="lvRoundLogTitle">Tiradas de esta ronda</div>
+      <div id="lvRoundLogEntries"></div>
+    </div>
   </div>
 </div>
 
@@ -739,6 +905,7 @@
       <p id="jrScoreText">9 - 6</p>
     </div>
     <div class="game-history-strip" id="jrHistoryStrip"></div>
+    <div id="jrMvpContainer"></div>
     <button class="primary-action" id="jrContinueBtn" onclick="continueAfterJuego()">Siguiente juego →</button>
   </div>
 </div>
@@ -755,6 +922,7 @@
       <p id="prScoreText">Gana la partida 2-1</p>
     </div>
     <div class="game-history-strip" id="prHistoryStrip"></div>
+    <div id="prMvpContainer"></div>
     <button class="primary-action" onclick="goHome()">Volver al inicio</button>
     <button class="secondary-action" onclick="goToStatsPartida()">Ver estadísticas de esta partida</button>
   </div>
