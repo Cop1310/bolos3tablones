@@ -23,7 +23,53 @@ db.ref('.info/connected').on('value', (snap) => {
   });
 });
 
-/* ============== PLAYER COLOR PALETTE ============== */
+/* ============== ADMIN & DEVICE SECURITY ============== */
+const ADMIN_PASSWORD = "1310";
+let isAdminMode = false;
+
+function getOrCreateDeviceId() {
+  let id = localStorage.getItem('bolos_device_id');
+  if (!id) {
+    id = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('bolos_device_id', id);
+  }
+  return id;
+}
+const DEVICE_ID = getOrCreateDeviceId();
+
+function openAdminModal() {
+  const modal = document.getElementById('adminPwModalContent');
+  modal.innerHTML = `
+    <h3>🔧 Modo administrador</h3>
+    <input type="password" class="text-input" id="adminPwInput" placeholder="Introduce la clave" style="margin-bottom:12px;">
+    <button class="primary-action" onclick="checkAdminPassword()">Entrar</button>
+    <button class="modal-close-btn" onclick="closeAdminModal()">Cancelar</button>
+  `;
+  document.getElementById('adminPwModal').classList.add('visible');
+  setTimeout(() => {
+    const input = document.getElementById('adminPwInput');
+    if (input) {
+      input.focus();
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') checkAdminPassword(); });
+    }
+  }, 100);
+}
+
+function closeAdminModal() {
+  document.getElementById('adminPwModal').classList.remove('visible');
+}
+
+function checkAdminPassword() {
+  const val = document.getElementById('adminPwInput').value;
+  if (val === ADMIN_PASSWORD) {
+    isAdminMode = true;
+    document.getElementById('adminBadge').classList.add('visible');
+    closeAdminModal();
+    showToast('🔓 Modo administrador activado');
+  } else {
+    showToast('⚠️ Contraseña incorrecta');
+  }
+}
 const PLAYER_COLORS = [
   '#c9982f', '#a8472f', '#5c7a4f', '#3d6e8a', '#9b5fa8',
   '#cc6633', '#4f9b8a', '#b8478f', '#7a8a3d', '#5a6fc9'
@@ -467,6 +513,17 @@ function startGame() {
   document.getElementById('gamePartidaNum').textContent = state.partidaNum;
   document.getElementById('gameJuegoNum').textContent = state.juegoNum;
 
+  // Lock this match to this device (first juego only — owner doesn't change mid-match)
+  if (state.juegoNum === 1) {
+    db.ref('partidas/' + state.partidaNum).update({
+      numero: state.partidaNum,
+      fecha: new Date().toISOString(),
+      ownerDeviceId: DEVICE_ID,
+      teamAName: state.teamA.name,
+      teamBName: state.teamB.name
+    }).catch(() => {});
+  }
+
   updateScoreboard();
   renderGameHistoryStrip('gameHistoryStrip');
   renderTurn();
@@ -634,6 +691,7 @@ function syncLiveState() {
 
   db.ref('live/current').set({
     partidaNum: state.partidaNum,
+    ownerDeviceId: DEVICE_ID,
     teamAName: state.teamA.name,
     teamBName: state.teamB.name,
     scoreA: getTeamTotalThisJuego('A'),
@@ -812,7 +870,20 @@ async function checkLiveGameOnHome() {
     const btn = document.getElementById('liveViewBtn');
     if (live && live.active) {
       btn.style.display = 'flex';
-      document.getElementById('liveViewSubtitle').textContent = `Partida ${live.partidaNum} — ${live.teamAName} vs ${live.teamBName}`;
+      const isOwner = live.ownerDeviceId === DEVICE_ID;
+      const icon = btn.querySelector('.icon');
+      const subtitle = document.getElementById('liveViewSubtitle');
+      if (isOwner) {
+        icon.textContent = '✏️';
+        btn.querySelector('strong').innerHTML = 'Continuar tu partida';
+        subtitle.textContent = `Partida ${live.partidaNum} — ${live.teamAName} vs ${live.teamBName}`;
+        btn.onclick = () => showToast('Para continuar anotando, esta partida sigue abierta en la pantalla de juego de tu dispositivo si no la cerraste. Si la cerraste, no es posible recuperar la sesión de anotación — solo verla.');
+      } else {
+        icon.textContent = '📡';
+        btn.querySelector('strong').innerHTML = '<span class="live-dot"></span>Ver partida en directo';
+        subtitle.textContent = `Partida ${live.partidaNum} — ${live.teamAName} vs ${live.teamBName}`;
+        btn.onclick = goToLiveView;
+      }
     } else {
       btn.style.display = 'none';
     }
@@ -1082,6 +1153,45 @@ function renderPartidasList() {
   });
 }
 
+/* ============== SEARCH BY DATE ============== */
+async function goToSearchByDate() {
+  showScreen('screen-searchdate');
+  await loadStatsData();
+  document.getElementById('searchDateResults').innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>Elige una fecha para ver las partidas de ese día</p></div>';
+}
+
+function searchPartidasByDate() {
+  const dateVal = document.getElementById('searchDateInput').value; // "YYYY-MM-DD"
+  const container = document.getElementById('searchDateResults');
+  if (!dateVal) { container.innerHTML = ''; return; }
+
+  const partidas = Object.entries(allPartidasCache)
+    .map(([id, p]) => ({ id, ...p }))
+    .filter(p => p.numero && p.fecha && p.fecha.startsWith(dateVal))
+    .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+
+  if (partidas.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">🎯</div><p>No hay partidas registradas ese día</p></div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  partidas.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'partida-card';
+    const status = p.finalizada
+      ? `<span class="pc-winner">${(p.ganadorNombre || '').replace('Equipo de ', 'Gana ')}</span>`
+      : `<span style="color:var(--chalk-dim)">En curso</span>`;
+    card.innerHTML = `
+      <div class="pc-top"><span class="pc-num">Partida ${p.numero}</span></div>
+      <div class="pc-teams">${(p.teamAName||'Equipo A')} vs ${(p.teamBName||'Equipo B')}</div>
+      <div style="margin-top:6px;">${status} ${p.finalizada ? `(${p.juegosGanadosA}-${p.juegosGanadosB})` : ''}</div>
+    `;
+    card.onclick = () => showPartidaDetail(p);
+    container.appendChild(card);
+  });
+}
+
 function showPartidaDetail(p) {
   const modal = document.getElementById('detailModalContent');
   const juegos = p.juegos ? Object.values(p.juegos) : [];
@@ -1096,6 +1206,10 @@ function showPartidaDetail(p) {
   const partidaThrows = Object.values(allThrowsCache).filter(t => t.partidaNum === p.numero);
   const playerStatsHtml = buildPlayerStatsHtml(partidaThrows);
 
+  const deleteBtnHtml = isAdminMode
+    ? `<button class="danger-action" onclick="adminDeletePartida(${p.numero})">🗑️ Borrar esta partida</button>`
+    : '';
+
   modal.innerHTML = `
     <h3>Partida ${p.numero} — ${(p.teamAName||'')} vs ${(p.teamBName||'')}</h3>
     ${juegosHtml}
@@ -1103,9 +1217,27 @@ function showPartidaDetail(p) {
       <div class="round-log-title">Estadísticas de jugadores en esta partida</div>
       ${playerStatsHtml}
     </div>
+    ${deleteBtnHtml}
     <button class="modal-close-btn" onclick="closeDetailModal()">Cerrar</button>
   `;
   document.getElementById('detailModal').classList.add('visible');
+}
+
+async function adminDeletePartida(numero) {
+  if (!isAdminMode) { showToast('⚠️ Necesitas modo administrador'); return; }
+  if (!confirm(`¿Borrar la partida ${numero}? Esta acción no se puede deshacer.`)) return;
+
+  try {
+    await db.ref('partidas/' + numero).remove();
+    await db.ref('partidas_throws/' + numero).remove();
+    showToast('🗑️ Partida borrada');
+    closeDetailModal();
+    await loadStatsData();
+    renderPartidasList();
+  } catch (e) {
+    console.error(e);
+    showToast('⚠️ Error al borrar');
+  }
 }
 
 function closeDetailModal() { document.getElementById('detailModal').classList.remove('visible'); }
@@ -1174,6 +1306,130 @@ function buildHistogram(throws, max) {
   `).join('');
 
   return `<div class="histogram">${bars}</div>`;
+}
+
+/* ============== PLAYERS DATABASE SCREEN ============== */
+async function goToPlayersDb() {
+  showScreen('screen-playersdb');
+  await loadPlayerDatabase();
+  await loadStatsData();
+  document.getElementById('adminAddPlayerBox').style.display = isAdminMode ? 'block' : 'none';
+  renderPlayersDbList();
+}
+
+function renderPlayersDbList() {
+  document.getElementById('adminAddPlayerBox').style.display = isAdminMode ? 'block' : 'none';
+  const container = document.getElementById('playersDbList');
+  const names = getAllPlayerNames();
+
+  if (names.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>Todavía no hay jugadores en la base de datos</p></div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  names.forEach(name => {
+    const photo = getPlayerPhoto(name);
+    const item = document.createElement('div');
+    item.className = 'player-db-item';
+    const photoHtml = photo
+      ? `<img class="db-photo" src="${photo}">`
+      : `<div class="db-photo placeholder">👤</div>`;
+    item.innerHTML = `${photoHtml}<span class="db-name">${escapeHtmlApp(name)}</span><span class="db-arrow">›</span>`;
+    item.onclick = () => goToPlayerDetail(name);
+    container.appendChild(item);
+  });
+}
+
+async function adminCreatePlayer() {
+  if (!isAdminMode) { showToast('⚠️ Necesitas modo administrador'); return; }
+  const input = document.getElementById('adminNewPlayerName');
+  const name = input.value.trim();
+  if (!name) { showToast('⚠️ Escribe un nombre'); return; }
+
+  const existing = getAllPlayerNames().find(n => n.toLowerCase() === name.toLowerCase());
+  if (existing) { showToast('⚠️ Ese jugador ya existe'); return; }
+
+  await addPlayerToDatabase(name);
+  input.value = '';
+  renderPlayersDbList();
+  showToast('✅ Jugador añadido a la base de datos');
+}
+
+async function goToPlayerDetail(name) {
+  showScreen('screen-playerdetail');
+  document.getElementById('pdName').textContent = name;
+  await loadStatsData();
+  renderPlayerDetail(name);
+}
+
+function renderPlayerDetail(name) {
+  const content = document.getElementById('pdContent');
+  const throws = Object.values(allThrowsCache).filter(t => t.player === name);
+  const photo = getPlayerPhoto(name);
+
+  // Count distinct juegos played (partidaNum + juegoNum combos)
+  const juegoKeys = new Set(throws.map(t => t.partidaNum + '_' + t.juegoNum));
+  const totalBolos = throws.reduce((s, t) => s + t.value, 0);
+  const avg = throws.length ? (totalBolos / throws.length).toFixed(1) : '0.0';
+
+  const photoHtml = photo
+    ? `<img class="mvp-photo" src="${photo}" style="margin-bottom:14px;">`
+    : `<div class="mvp-photo placeholder" style="margin-bottom:14px;">👤</div>`;
+
+  const arriba = throws.filter(t => t.dir === 'arriba');
+  const abajo = throws.filter(t => t.dir === 'abajo');
+
+  const adminButtonsHtml = isAdminMode ? `
+    <div style="display:flex; gap:8px; margin-top:18px;">
+      <button class="secondary-action" style="margin-top:0;" onclick="adminChangePlayerPhoto('${escapeJs(name)}')">📷 Cambiar foto</button>
+      <button class="danger-action" style="margin-top:0;" onclick="adminDeletePlayer('${escapeJs(name)}')">🗑️ Borrar jugador</button>
+    </div>
+  ` : '';
+
+  content.innerHTML = `
+    <div style="text-align:center;">${photoHtml}</div>
+    <div class="ps-metrics" style="justify-content:center; margin-bottom:20px;">
+      <div class="ps-metric"><div class="num">${juegoKeys.size}</div><div class="lbl">Juegos jugados</div></div>
+      <div class="ps-metric"><div class="num">${throws.length}</div><div class="lbl">Tiradas</div></div>
+      <div class="ps-metric"><div class="num">${totalBolos}</div><div class="lbl">Bolos totales</div></div>
+      <div class="ps-metric"><div class="num">${avg}</div><div class="lbl">Media/tirada</div></div>
+    </div>
+    ${arriba.length ? `<div style="font-size:0.68rem; color:var(--chalk-dim); margin-bottom:6px;">Para arriba (0-9)</div>${buildHistogram(arriba, 9)}` : ''}
+    ${abajo.length ? `<div style="font-size:0.68rem; color:var(--chalk-dim); margin:14px 0 6px;">Para abajo (0-6)</div>${buildHistogram(abajo, 6)}` : ''}
+    ${!throws.length ? '<p style="text-align:center; color:var(--chalk-dim); font-size:0.85rem; margin-top:20px;">Este jugador todavía no ha tirado ninguna partida.</p>' : ''}
+    ${adminButtonsHtml}
+  `;
+}
+
+function adminChangePlayerPhoto(name) {
+  if (!isAdminMode) { showToast('⚠️ Necesitas modo administrador'); return; }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    resizePlayerPhoto(file, async (dataUrl) => {
+      await savePlayerPhoto(name, dataUrl);
+      renderPlayerDetail(name);
+      showToast('✅ Foto actualizada');
+    });
+  };
+  input.click();
+}
+
+async function adminDeletePlayer(name) {
+  if (!isAdminMode) { showToast('⚠️ Necesitas modo administrador'); return; }
+  if (!confirm(`¿Borrar a ${name} de la base de datos? Las estadísticas de partidas ya jugadas se conservan, pero no podrás volver a elegirlo salvo que lo crees de nuevo.`)) return;
+
+  const id = findPlayerIdByName(name);
+  if (id) {
+    await db.ref('jugadores/' + id).remove();
+    delete playerDatabase[id];
+  }
+  showToast('🗑️ Jugador borrado de la base de datos');
+  goToPlayersDb();
 }
 
 /* Override continueAfterJuego flow: juego 1 uses coin toss screen, 2+ uses plant screen automatically */

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Bolos a 3 Tablones</title>
+<title>Bolos 3 Tablones</title>
 <link rel="manifest" href="data:application/json,{%22name%22:%22Bolos%203%20Tablones%22,%22short_name%22:%22Bolos%22,%22display%22:%22standalone%22,%22background_color%22:%22%232b1d12%22,%22theme_color%22:%22%232b1d12%22}">
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -688,6 +688,88 @@
   .mvp-photo.placeholder { display: flex; align-items: center; justify-content: center; background: var(--wood-mid); color: var(--gold); font-size: 1.5rem; }
   .mvp-name { font-size: 1.15rem; font-weight: 700; color: var(--chalk); }
   .mvp-count { font-size: 0.78rem; color: var(--chalk-dim); margin-top: 2px; }
+
+  /* ===== Date search ===== */
+  .date-input-wrap {
+    margin-bottom: 18px;
+  }
+  .date-input-wrap input[type="date"] {
+    width: 100%;
+    padding: 13px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wood-light);
+    border-radius: 8px;
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 1rem;
+    color-scheme: dark;
+  }
+
+  /* ===== Players database list ===== */
+  .player-db-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .player-db-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+  .player-db-item .db-photo {
+    width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    border: 2px solid var(--wood-light);
+  }
+  .player-db-item .db-photo.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--wood-mid); color: var(--chalk-dim); font-size: 1rem;
+  }
+  .player-db-item .db-name { flex: 1; font-size: 0.92rem; font-weight: 700; }
+  .player-db-item .db-arrow { color: var(--chalk-dim); }
+
+  /* ===== Admin badge / lock indicator ===== */
+  .admin-badge {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    background: var(--rust);
+    color: var(--chalk);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 12px;
+    z-index: 400;
+    display: none;
+  }
+  .admin-badge.visible { display: block; }
+
+  .danger-action {
+    width: 100%;
+    padding: 13px;
+    background: rgba(168,71,47,0.15);
+    border: 1.5px solid var(--rust);
+    color: #e89a85;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .readonly-banner {
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--wood-light);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 16px;
+    font-size: 0.78rem;
+    color: var(--chalk-dim);
+  }
 </style>
 </head>
 <body>
@@ -697,12 +779,12 @@
 <!-- ============================================================ -->
 <div class="screen active" id="screen-home">
   <div class="cover-photo-wrap">
-    <img src="img/bolera_banner.jpg" alt="Bolera de las Merindades de Burgos">
-    <div class="cover-caption">Merindades de Burgos</div>
+    <img src="img/bolera_banner.jpg" alt="Bolera de Ahedo de las Pueblas">
+    <div class="cover-caption">Ahedo de las Pueblas</div>
   </div>
   <div class="app-header" style="border-top:none;">
     <div class="sync-dot" id="syncDot"></div>
-    <h1>Bolos a 3 Tablones</h1>
+    <h1>Bolos 3 Tablones</h1>
     <div class="sub">marcador y estadísticas</div>
   </div>
   <div class="content">
@@ -718,6 +800,18 @@
       <button class="menu-btn" onclick="goToStats()">
         <span class="icon">📊</span>
         <span class="label-block"><strong>Estadísticas</strong><span>partidas, juegos y totales del día</span></span>
+      </button>
+      <button class="menu-btn" onclick="goToSearchByDate()">
+        <span class="icon">📅</span>
+        <span class="label-block"><strong>Buscar por fecha</strong><span>ver partidas de un día concreto</span></span>
+      </button>
+      <button class="menu-btn" onclick="goToPlayersDb()">
+        <span class="icon">👥</span>
+        <span class="label-block"><strong>Jugadores</strong><span>estadísticas individuales de cada jugador</span></span>
+      </button>
+      <button class="menu-btn" onclick="openAdminModal()">
+        <span class="icon">🔧</span>
+        <span class="label-block"><strong>Administrador</strong><span>borrar partidas, gestionar jugadores</span></span>
       </button>
     </div>
   </div>
@@ -891,6 +985,56 @@
 </div>
 
 <!-- ============================================================ -->
+<!-- SCREEN: SEARCH BY DATE -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-searchdate">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h1>Buscar por fecha</h1>
+  </div>
+  <div class="content">
+    <div class="date-input-wrap">
+      <input type="date" id="searchDateInput" onchange="searchPartidasByDate()">
+    </div>
+    <div id="searchDateResults"></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: PLAYERS DATABASE -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-playersdb">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h1>Jugadores</h1>
+  </div>
+  <div class="content">
+    <div id="adminAddPlayerBox" style="display:none;" class="team-setup-block">
+      <h3>➕ Añadir jugador a la base de datos</h3>
+      <div class="new-player-row">
+        <input type="text" class="text-input" id="adminNewPlayerName" placeholder="Nombre del jugador">
+        <button onclick="adminCreatePlayer()">Crear</button>
+      </div>
+    </div>
+    <div class="player-db-list" id="playersDbList"></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: PLAYER DETAIL -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-playerdetail">
+  <div class="app-header">
+    <button class="back-btn" onclick="goToPlayersDb()">←</button>
+    <h1 id="pdName">Jugador</h1>
+  </div>
+  <div class="content" id="pdContent"></div>
+</div>
+
+<!-- Admin badge -->
+<div class="admin-badge" id="adminBadge">🔧 MODO ADMIN</div>
+
+<!-- ============================================================ -->
 <!-- SCREEN: GAME RESULT -->
 <!-- ============================================================ -->
 <div class="screen" id="screen-juego-result">
@@ -964,6 +1108,11 @@
 <!-- Modal: edit throw -->
 <div class="detail-modal-overlay" id="editThrowModal">
   <div class="detail-modal" id="editThrowModalContent"></div>
+</div>
+
+<!-- Modal: admin password -->
+<div class="detail-modal-overlay" id="adminPwModal">
+  <div class="detail-modal" id="adminPwModalContent"></div>
 </div>
 
 <div class="toast" id="toast"></div>
