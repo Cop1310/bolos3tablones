@@ -42,7 +42,6 @@
   .screen { display: none; min-height: 100vh; flex-direction: column; }
   .screen.active { display: flex; }
 
-  /* ===== Shared header ===== */
   .app-header {
     background: linear-gradient(180deg, var(--wood-dark), var(--bark));
     padding: 18px 16px 14px;
@@ -91,6 +90,23 @@
     justify-content: center;
   }
 
+  .header-action-btn {
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid var(--gold);
+    color: var(--gold);
+    border-radius: 18px;
+    padding: 7px 12px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
   .sync-dot {
     position: absolute;
     top: 20px;
@@ -112,17 +128,9 @@
   }
 
   /* ===== Home screen ===== */
-  .home-hero {
-    text-align: center;
-    padding: 30px 10px 10px;
-  }
+  .home-hero { text-align: center; padding: 30px 10px 10px; }
 
-  .bolo-icon-row {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 18px;
-  }
+  .bolo-icon-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
 
   .bolo-pin {
     width: 14px;
@@ -132,20 +140,8 @@
     box-shadow: inset -2px 0 4px rgba(0,0,0,0.2);
   }
 
-  .home-hero h2 {
-    font-size: 1.7rem;
-    color: var(--chalk);
-    margin-bottom: 6px;
-    line-height: 1.25;
-  }
-
-  .home-hero p {
-    color: var(--chalk-dim);
-    font-size: 0.85rem;
-    font-style: italic;
-    max-width: 320px;
-    margin: 0 auto;
-  }
+  .home-hero h2 { font-size: 1.7rem; color: var(--chalk); margin-bottom: 6px; line-height: 1.25; }
+  .home-hero p { color: var(--chalk-dim); font-size: 0.85rem; font-style: italic; max-width: 320px; margin: 0 auto; }
 
   .menu-list { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
 
@@ -163,27 +159,17 @@
     align-items: center;
     gap: 14px;
     box-shadow: 0 4px 10px var(--shadow-deep);
-    transition: transform 0.1s;
   }
   .menu-btn:active { transform: scale(0.98); }
-
   .menu-btn .icon { font-size: 1.6rem; flex-shrink: 0; }
   .menu-btn .label-block { flex: 1; }
   .menu-btn .label-block strong { display: block; font-size: 1.02rem; }
   .menu-btn .label-block span { display: block; font-size: 0.7rem; color: var(--chalk-dim); font-style: italic; margin-top: 2px; }
-
   .menu-btn.primary { border-color: var(--gold); background: linear-gradient(135deg, #6b4a2a, var(--wood-dark)); }
 
   /* ===== Forms / setup ===== */
   .field-group { margin-bottom: 18px; }
-  .field-label {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--gold);
-    display: block;
-    margin-bottom: 8px;
-  }
+  .field-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); display: block; margin-bottom: 8px; }
 
   .stepper {
     display: flex;
@@ -197,9 +183,7 @@
   }
 
   .stepper button {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
+    width: 42px; height: 42px; border-radius: 50%;
     border: 1.5px solid var(--gold);
     background: var(--wood-dark);
     color: var(--gold);
@@ -207,12 +191,7 @@
     cursor: pointer;
   }
 
-  .stepper .count {
-    font-size: 1.8rem;
-    font-weight: 700;
-    min-width: 50px;
-    text-align: center;
-  }
+  .stepper .count { font-size: 1.8rem; font-weight: 700; min-width: 50px; text-align: center; }
 
   .text-input {
     width: 100%;
@@ -226,7 +205,7 @@
   }
   .text-input::placeholder { color: rgba(244,234,216,0.35); }
 
-  .player-input-row {
+  .player-slot-row {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -234,9 +213,7 @@
   }
 
   .player-order-num {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+    width: 30px; height: 30px; border-radius: 50%;
     background: var(--wood-mid);
     color: var(--gold);
     font-size: 0.8rem;
@@ -247,13 +224,22 @@
     flex-shrink: 0;
   }
 
-  .responsible-tag {
-    font-size: 0.6rem;
-    color: var(--gold);
-    font-style: italic;
-    margin-top: 6px;
-    padding-left: 40px;
+  .player-pick-btn {
+    flex: 1;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wood-light);
+    border-radius: 8px;
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 0.92rem;
+    text-align: left;
+    cursor: pointer;
   }
+  .player-pick-btn.empty { color: rgba(244,234,216,0.4); font-style: italic; }
+  .player-pick-btn.has-color { border-left: 5px solid var(--player-color, var(--gold)); }
+
+  .responsible-tag { font-size: 0.6rem; color: var(--gold); font-style: italic; margin-top: 4px; padding-left: 40px; }
 
   .team-setup-block {
     background: rgba(255,255,255,0.03);
@@ -263,14 +249,7 @@
     margin-bottom: 16px;
   }
 
-  .team-setup-block h3 {
-    font-size: 0.95rem;
-    color: var(--chalk);
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .team-setup-block h3 { font-size: 0.95rem; color: var(--chalk); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 
   .team-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
   .team-color-dot.a { background: var(--rust); }
@@ -306,47 +285,30 @@
     margin-top: 10px;
   }
 
-  /* ===== Coin toss ===== */
-  .coin-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 50px 10px;
-  }
+  /* ===== Coin toss (text based) ===== */
+  .coin-wrap { display: flex; flex-direction: column; align-items: center; padding: 40px 10px; }
 
-  .coin {
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #e8c873, var(--gold) 60%, #8a6420);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.2rem;
-    box-shadow: 0 8px 24px var(--shadow-deep), inset 0 -6px 14px rgba(0,0,0,0.25);
-    border: 4px solid #8a6420;
-    margin-bottom: 30px;
-    transition: transform 0.15s;
-  }
-
-  .coin.flipping {
-    animation: coinflip 1.4s ease-out;
-  }
-
-  @keyframes coinflip {
-    0% { transform: rotateY(0) scale(1); }
-    20% { transform: rotateY(720deg) scale(1.1); }
-    50% { transform: rotateY(1800deg) scale(1.15); }
-    80% { transform: rotateY(2880deg) scale(1.05); }
-    100% { transform: rotateY(3600deg) scale(1); }
-  }
-
-  .coin-call-row {
-    display: flex;
-    gap: 14px;
+  .coin-text-display {
     width: 100%;
-    margin-bottom: 24px;
+    padding: 50px 10px;
+    text-align: center;
+    border-radius: 16px;
+    background: radial-gradient(circle at 50% 30%, rgba(201,152,47,0.15), transparent 70%);
+    border: 2px solid var(--wood-light);
+    margin-bottom: 26px;
   }
+
+  .coin-text-display .big-word {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .coin-text-display .big-word.placeholder { color: var(--chalk-dim); font-size: 1.3rem; font-style: italic; font-weight: 400; }
+
+  .coin-call-row { display: flex; gap: 14px; width: 100%; margin-bottom: 24px; }
 
   .coin-call-btn {
     flex: 1;
@@ -361,14 +323,19 @@
   }
   .coin-call-btn.selected { border-color: var(--gold); background: rgba(201,152,47,0.18); }
 
-  .coin-result-text {
-    text-align: center;
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: var(--chalk-dim);
-    min-height: 60px;
-  }
+  .coin-result-text { text-align: center; font-size: 1.05rem; line-height: 1.6; color: var(--chalk-dim); min-height: 50px; }
   .coin-result-text strong { color: var(--gold); }
+
+  .plant-info-card {
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid var(--gold);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .plant-info-card .pi-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--chalk-dim); margin-bottom: 8px; }
+  .plant-info-card .pi-team { font-size: 1.3rem; font-weight: 700; color: var(--chalk); margin-bottom: 14px; }
 
   /* ===== Live game / marcador ===== */
   .scoreboard {
@@ -379,37 +346,10 @@
     margin-bottom: 18px;
   }
 
-  .sb-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 0;
-  }
-
-  .sb-team-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .sb-score {
-    font-size: 1.8rem;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-  }
-
+  .sb-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+  .sb-team-name { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sb-score { font-size: 1.8rem; font-weight: 700; font-family: 'Courier New', monospace; }
   .sb-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0; }
-
-  .sb-meta {
-    text-align: center;
-    font-size: 0.68rem;
-    color: var(--chalk-dim);
-    margin-top: 10px;
-    font-style: italic;
-    letter-spacing: 0.03em;
-  }
 
   .llevar-banner {
     text-align: center;
@@ -423,27 +363,21 @@
   }
 
   .turn-card {
-    background: rgba(255,255,255,0.04);
-    border: 1.5px solid var(--gold);
     border-radius: 14px;
     padding: 20px;
     text-align: center;
     margin-bottom: 18px;
+    border: 2px solid var(--player-color, var(--gold));
+    background: color-mix(in srgb, var(--player-color, var(--gold)) 14%, rgba(255,255,255,0.03));
   }
 
-  .turn-team-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--chalk-dim);
-    margin-bottom: 8px;
-  }
+  .turn-team-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--chalk-dim); margin-bottom: 8px; }
 
   .turn-player-name {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 700;
-    color: var(--chalk);
     margin-bottom: 4px;
+    color: var(--player-color, var(--chalk));
   }
 
   .turn-direction {
@@ -459,13 +393,7 @@
   .turn-direction.arriba { background: rgba(168,71,47,0.25); color: #e89a85; }
   .turn-direction.abajo { background: rgba(92,122,79,0.25); color: #a8d695; }
 
-  .pins-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
-    margin-top: 4px;
-  }
-
+  .pins-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 4px; }
   .pins-grid.seven { grid-template-columns: repeat(4, 1fr); }
 
   .pin-btn {
@@ -483,247 +411,158 @@
   }
   .pin-btn:active { background: var(--gold); color: var(--bark); transform: scale(0.93); }
 
-  .pin-btn.four-pin { border-color: var(--gold); position: relative; }
-  .pin-btn.four-pin::after {
-    content: '★';
-    position: absolute;
-    top: 3px;
-    right: 5px;
-    font-size: 0.55rem;
-    color: var(--gold);
-  }
-
-  .round-log {
-    margin-top: 18px;
-  }
-
-  .round-log-title {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--chalk-dim);
-    margin-bottom: 10px;
-  }
+  .round-log { margin-top: 18px; }
+  .round-log-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--chalk-dim); margin-bottom: 10px; }
 
   .log-entry {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     padding: 8px 12px;
     background: rgba(255,255,255,0.03);
     border-radius: 8px;
     margin-bottom: 6px;
     font-size: 0.82rem;
   }
-
-  .log-entry .name { color: var(--chalk); }
+  .log-entry .name { color: var(--chalk); display: flex; align-items: center; gap: 8px; }
   .log-entry .val { color: var(--gold); font-weight: 700; font-family: 'Courier New', monospace; }
+  .log-entry .edit-icon { color: var(--chalk-dim); cursor: pointer; font-size: 0.9rem; padding: 4px; }
+  .log-color-chip { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
-  .game-history-strip {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-
-  .game-pill {
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.06);
-    color: var(--chalk-dim);
-  }
+  .game-history-strip { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .game-pill { font-size: 0.65rem; padding: 4px 10px; border-radius: 14px; background: rgba(255,255,255,0.06); color: var(--chalk-dim); }
   .game-pill.won-a { background: rgba(168,71,47,0.3); color: #e89a85; }
   .game-pill.won-b { background: rgba(92,122,79,0.3); color: #a8d695; }
 
-  /* ===== End screens ===== */
-  .result-banner {
-    text-align: center;
-    padding: 40px 20px;
-  }
-
+  .result-banner { text-align: center; padding: 40px 20px; }
   .result-banner .trophy { font-size: 3.5rem; margin-bottom: 14px; }
   .result-banner h2 { font-size: 1.5rem; color: var(--gold); margin-bottom: 8px; }
   .result-banner p { color: var(--chalk-dim); font-size: 0.9rem; }
 
-  /* ===== Stats ===== */
-  .stats-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 18px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 10px;
-    padding: 4px;
-  }
-
-  .stats-tab {
-    flex: 1;
-    padding: 9px 6px;
-    text-align: center;
-    border: none;
-    background: none;
-    color: var(--chalk-dim);
-    font-family: inherit;
-    font-size: 0.72rem;
-    border-radius: 8px;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
+  .stats-tabs { display: flex; gap: 6px; margin-bottom: 18px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 4px; }
+  .stats-tab { flex: 1; padding: 9px 6px; text-align: center; border: none; background: none; color: var(--chalk-dim); font-family: inherit; font-size: 0.72rem; border-radius: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; }
   .stats-tab.active { background: var(--gold); color: var(--bark); font-weight: 700; }
 
-  .partida-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--wood-mid);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    cursor: pointer;
-  }
-
-  .partida-card .pc-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-  }
-
-  .partida-card .pc-num {
-    font-size: 0.65rem;
-    color: var(--gold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
+  .partida-card { background: rgba(255,255,255,0.04); border: 1px solid var(--wood-mid); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; }
+  .partida-card .pc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .partida-card .pc-num { font-size: 0.65rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; }
   .partida-card .pc-date { font-size: 0.65rem; color: var(--chalk-dim); }
-
-  .partida-card .pc-teams {
-    font-size: 0.92rem;
-    color: var(--chalk);
-  }
-
+  .partida-card .pc-teams { font-size: 0.92rem; color: var(--chalk); }
   .partida-card .pc-winner { color: var(--gold); font-weight: 700; }
 
-  .player-stat-card {
-    background: rgba(255,255,255,0.04);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-  }
-
-  .player-stat-card .ps-name {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-
-  .ps-metrics {
-    display: flex;
-    gap: 18px;
-    margin-bottom: 12px;
-  }
-
+  .player-stat-card { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .player-stat-card .ps-name { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+  .ps-metrics { display: flex; gap: 18px; margin-bottom: 12px; }
   .ps-metric .num { font-size: 1.3rem; font-weight: 700; color: var(--gold); font-family: 'Courier New', monospace; }
   .ps-metric .lbl { font-size: 0.6rem; color: var(--chalk-dim); text-transform: uppercase; letter-spacing: 0.04em; }
 
-  .histogram {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 60px;
-  }
+  .histogram { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+  .hist-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .hist-bar { width: 100%; background: linear-gradient(180deg, var(--gold), var(--wood-mid)); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .hist-label { font-size: 0.55rem; color: var(--chalk-dim); margin-top: 3px; }
 
-  .hist-bar-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-  }
-
-  .hist-bar {
-    width: 100%;
-    background: linear-gradient(180deg, var(--gold), var(--wood-mid));
-    border-radius: 3px 3px 0 0;
-    min-height: 2px;
-  }
-
-  .hist-label {
-    font-size: 0.55rem;
-    color: var(--chalk-dim);
-    margin-top: 3px;
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--chalk-dim);
-  }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--chalk-dim); }
   .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
   .empty-state p { font-size: 0.88rem; font-style: italic; }
 
   .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--wood-dark);
-    color: var(--gold);
-    padding: 11px 20px;
-    border-radius: 20px;
-    font-size: 0.82rem;
-    border: 1px solid var(--gold);
-    z-index: 600;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-    white-space: nowrap;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--wood-dark); color: var(--gold);
+    padding: 11px 20px; border-radius: 20px; font-size: 0.82rem;
+    border: 1px solid var(--gold); z-index: 600; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; white-space: nowrap; max-width: 90%; text-align: center;
   }
   .toast.show { opacity: 1; }
 
   .detail-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.65);
-    z-index: 500;
-    align-items: flex-end;
-    justify-content: center;
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 500; align-items: flex-end; justify-content: center;
   }
   .detail-modal-overlay.visible { display: flex; }
 
   .detail-modal {
-    background: var(--bark);
-    border-top: 2px solid var(--gold);
-    border-radius: 16px 16px 0 0;
-    width: 100%;
-    max-width: 480px;
-    max-height: 85vh;
-    overflow-y: auto;
-    padding: 20px 18px 30px;
+    background: var(--bark); border-top: 2px solid var(--gold);
+    border-radius: 16px 16px 0 0; width: 100%; max-width: 480px;
+    max-height: 88vh; overflow-y: auto; padding: 20px 18px 30px;
   }
-
   .detail-modal h3 { color: var(--gold); margin-bottom: 16px; font-size: 1.1rem; }
+
   .modal-close-btn {
-    width: 100%;
-    padding: 12px;
-    margin-top: 16px;
-    background: none;
-    border: 1px solid var(--wood-light);
-    color: var(--chalk-dim);
-    border-radius: 10px;
-    font-family: inherit;
-    cursor: pointer;
+    width: 100%; padding: 12px; margin-top: 16px; background: none;
+    border: 1px solid var(--wood-light); color: var(--chalk-dim);
+    border-radius: 10px; font-family: inherit; cursor: pointer;
   }
 
-  .juego-detail-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    font-size: 0.85rem;
+  .juego-detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem; }
+
+  /* Player picker modal */
+  .picker-search {
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wood-light);
+    border-radius: 8px;
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 0.95rem;
+    margin-bottom: 14px;
   }
+
+  .picker-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; margin-bottom: 14px; }
+
+  .picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.92rem;
+  }
+  .picker-item:active { background: rgba(201,152,47,0.15); }
+  .picker-item .color-chip { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .picker-item.disabled { opacity: 0.35; pointer-events: none; }
+  .picker-item .taken-tag { margin-left: auto; font-size: 0.62rem; color: var(--chalk-dim); font-style: italic; }
+
+  .new-player-row { display: flex; gap: 8px; }
+  .new-player-row input { flex: 1; }
+  .new-player-row button {
+    padding: 0 18px;
+    background: var(--gold);
+    color: var(--bark);
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* Reorder modal */
+  .reorder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .reorder-item .color-chip { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .reorder-item .reorder-name { flex: 1; font-size: 0.92rem; }
+  .reorder-move-btns { display: flex; gap: 4px; }
+  .reorder-move-btns button {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--wood-light);
+    background: var(--wood-dark);
+    color: var(--gold);
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .reorder-move-btns button:disabled { opacity: 0.25; }
+
+  .reorder-team-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold); margin: 16px 0 8px; }
 </style>
 </head>
 <body>
@@ -768,17 +607,18 @@
   </div>
   <div class="content">
 
+    <div class="field-group">
+      <span class="field-label">Jugadores por equipo</span>
+      <div class="stepper">
+        <button onclick="changePlayerCount(-1)">−</button>
+        <span class="count" id="countShared">2</span>
+        <button onclick="changePlayerCount(1)">+</button>
+      </div>
+    </div>
+
     <div class="team-setup-block">
       <h3><span class="team-color-dot a"></span>Equipo A</h3>
-      <div class="field-group">
-        <span class="field-label">Número de jugadores</span>
-        <div class="stepper">
-          <button onclick="changePlayerCount('A',-1)">−</button>
-          <span class="count" id="countA">2</span>
-          <button onclick="changePlayerCount('A',1)">+</button>
-        </div>
-      </div>
-      <div class="field-group">
+      <div class="field-group" style="margin-bottom:0;">
         <span class="field-label">Jugadores en orden de tirada</span>
         <div id="playersA"></div>
         <div class="responsible-tag">⭐ el último jugador es el "hombre responsable"</div>
@@ -787,15 +627,7 @@
 
     <div class="team-setup-block">
       <h3><span class="team-color-dot b"></span>Equipo B</h3>
-      <div class="field-group">
-        <span class="field-label">Número de jugadores</span>
-        <div class="stepper">
-          <button onclick="changePlayerCount('B',-1)">−</button>
-          <span class="count" id="countB">2</span>
-          <button onclick="changePlayerCount('B',1)">+</button>
-        </div>
-      </div>
-      <div class="field-group">
+      <div class="field-group" style="margin-bottom:0;">
         <span class="field-label">Jugadores en orden de tirada</span>
         <div id="playersB"></div>
         <div class="responsible-tag">⭐ el último jugador es el "hombre responsable"</div>
@@ -807,25 +639,46 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- SCREEN: COIN TOSS -->
+<!-- SCREEN: COIN TOSS (juego 1) -->
 <!-- ============================================================ -->
 <div class="screen" id="screen-coin">
   <div class="app-header">
     <button class="back-btn" onclick="goToSetup()">←</button>
-    <div class="eyebrow">Juego <span id="coinJuegoNum">1</span></div>
+    <div class="eyebrow">Juego 1</div>
     <h1>Cara o cruz</h1>
   </div>
   <div class="content">
     <div class="coin-wrap">
-      <div class="coin" id="coinEl">🪙</div>
+      <div class="coin-text-display">
+        <div class="big-word placeholder" id="coinBigWord">esperando lanzamiento</div>
+      </div>
       <div class="coin-call-row">
         <button class="coin-call-btn" id="callCaraBtn" onclick="selectCall('cara')">Cara</button>
         <button class="coin-call-btn" id="callCruzBtn" onclick="selectCall('cruz')">Cruz</button>
       </div>
-      <div class="coin-result-text" id="coinResultText">¿Quién llama, equipo A o equipo B? Elige cara o cruz para lanzar.</div>
+      <div class="coin-result-text" id="coinResultText">¿Quién llama, equipo A o equipo B?</div>
       <button class="primary-action" id="coinTossBtn" onclick="doCoinToss()" disabled>Lanzar moneda</button>
       <button class="secondary-action" id="coinContinueBtn" style="display:none" onclick="startGame()">Empezar a tirar →</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: PLANT INFO (juego 2+, sin sorteo) -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-plant">
+  <div class="app-header">
+    <div class="eyebrow">Juego <span id="plantJuegoNum">2</span></div>
+    <h1>Reparto de turno</h1>
+  </div>
+  <div class="content">
+    <div class="plant-info-card">
+      <div class="pi-label">Planta los bolos (perdió el juego anterior)</div>
+      <div class="pi-team" id="plantTeamName">Equipo B</div>
+      <div class="pi-label">Tira primero</div>
+      <div class="pi-team" id="throwTeamName" style="color:var(--gold);">Equipo A</div>
+    </div>
+    <button class="primary-action" onclick="startGame()">Empezar a tirar →</button>
   </div>
 </div>
 
@@ -835,7 +688,7 @@
 <div class="screen" id="screen-game">
   <div class="app-header">
     <button class="back-btn" onclick="confirmAbandon()">←</button>
-    <div class="sync-dot" id="syncDotGame"></div>
+    <button class="header-action-btn" onclick="openReorderModal()">Reordenar</button>
     <div class="eyebrow">Partida <span id="gamePartidaNum">1</span> · Juego <span id="gameJuegoNum">1</span></div>
     <h1 id="gameRoundLabel">Ronda 1</h1>
   </div>
@@ -872,7 +725,7 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- SCREEN: GAME RESULT (won a "juego") -->
+<!-- SCREEN: GAME RESULT -->
 <!-- ============================================================ -->
 <div class="screen" id="screen-juego-result">
   <div class="app-header">
@@ -891,12 +744,10 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- SCREEN: PARTIDA RESULT (won the match) -->
+<!-- SCREEN: PARTIDA RESULT -->
 <!-- ============================================================ -->
 <div class="screen" id="screen-partida-result">
-  <div class="app-header">
-    <h1>¡Partida terminada!</h1>
-  </div>
+  <div class="app-header"><h1>¡Partida terminada!</h1></div>
   <div class="content">
     <div class="result-banner">
       <div class="trophy">🥇</div>
@@ -922,15 +773,29 @@
       <button class="stats-tab active" onclick="showStatsTab('partidas', this)">Partidas</button>
       <button class="stats-tab" onclick="showStatsTab('totales', this)">Totales del día</button>
     </div>
-
     <div id="statsTabPartidas"></div>
     <div id="statsTabTotales" style="display:none"></div>
   </div>
 </div>
 
-<!-- Modal for partida/juego detail -->
+<!-- Modal: partida/juego detail -->
 <div class="detail-modal-overlay" id="detailModal">
   <div class="detail-modal" id="detailModalContent"></div>
+</div>
+
+<!-- Modal: player picker -->
+<div class="detail-modal-overlay" id="pickerModal">
+  <div class="detail-modal" id="pickerModalContent"></div>
+</div>
+
+<!-- Modal: reorder players -->
+<div class="detail-modal-overlay" id="reorderModal">
+  <div class="detail-modal" id="reorderModalContent"></div>
+</div>
+
+<!-- Modal: edit throw -->
+<div class="detail-modal-overlay" id="editThrowModal">
+  <div class="detail-modal" id="editThrowModalContent"></div>
 </div>
 
 <div class="toast" id="toast"></div>
