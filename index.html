@@ -929,6 +929,8 @@
       <div class="game-history-strip" id="gameHistoryStrip"></div>
     </div>
 
+    <button class="danger-action" id="darElJuegoBtn" style="display:none; margin-top:0; margin-bottom:18px;" onclick="openDarJuegoConfirm()">🏳️ Dar el juego</button>
+
     <div class="turn-card" id="turnCard">
       <img class="turn-card-photo placeholder" id="turnPlayerPhoto" style="display:none;">
       <div class="turn-team-label" id="turnTeamLabel">TIRA EQUIPO A</div>
@@ -1047,6 +1049,7 @@
       <div class="trophy">🏆</div>
       <h2 id="jrWinnerName">Equipo de Joseba</h2>
       <p id="jrScoreText">9 - 6</p>
+      <p id="jrDadoPorNote" style="display:none; color:var(--gold); font-size:0.8rem; margin-top:8px; font-style:italic;"></p>
     </div>
     <div class="game-history-strip" id="jrHistoryStrip"></div>
     <div id="jrMvpContainer"></div>
@@ -1113,6 +1116,11 @@
 <!-- Modal: admin password -->
 <div class="detail-modal-overlay" id="adminPwModal">
   <div class="detail-modal" id="adminPwModalContent"></div>
+</div>
+
+<!-- Modal: dar el juego -->
+<div class="detail-modal-overlay" id="darJuegoModal">
+  <div class="detail-modal" id="darJuegoModalContent"></div>
 </div>
 
 <div class="toast" id="toast"></div>

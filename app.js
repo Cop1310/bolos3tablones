@@ -569,7 +569,8 @@ function renderGameHistoryStrip(elId) {
     const pill = document.createElement('span');
     pill.className = 'game-pill ' + (g.winner === 'A' ? 'won-a' : 'won-b');
     const winnerName = g.winner === 'A' ? state.teamA.name : state.teamB.name;
-    pill.textContent = `J${idx + 1}: ${winnerName.replace('Equipo de ', '')} (${g.scoreA}-${g.scoreB})`;
+    const dadoTag = g.dadoPor ? ' 🏳️' : '';
+    pill.textContent = `J${idx + 1}: ${winnerName.replace('Equipo de ', '')} (${g.scoreA}-${g.scoreB})${dadoTag}`;
     strip.appendChild(pill);
   });
 }
@@ -603,9 +604,64 @@ function renderTurn() {
     `${team.name} — ${state.turnDirection === 'arriba' ? 'tirada hacia arriba' : 'tirada hacia abajo'}`;
 
   updatePartialScoreFlash();
+  updateDarJuegoVisibility();
   renderPinsGrid();
   renderRoundLog();
   syncLiveState();
+}
+
+function updateDarJuegoVisibility() {
+  const btn = document.getElementById('darElJuegoBtn');
+  // Visible once both teams have completed at least 1 full round each
+  // (i.e. from the planting team's 2nd round onward, per the rule)
+  const bothCompletedFirstRound = state.roundNumberForTeam.A >= 1 && state.roundNumberForTeam.B >= 1;
+  btn.style.display = bothCompletedFirstRound ? 'block' : 'none';
+}
+
+/* ============== DAR EL JUEGO ============== */
+function openDarJuegoConfirm() {
+  const modal = document.getElementById('darJuegoModalContent');
+  modal.innerHTML = `
+    <h3>🏳️ Dar el juego</h3>
+    <p style="color:var(--chalk-dim); font-size:0.88rem; line-height:1.5; margin-bottom:18px;">
+      Esto termina el juego ahora mismo con el resultado actual. Las tiradas que faltan no se anotarán ni contarán para las estadísticas.
+    </p>
+    <button class="danger-action" style="margin-top:0;" onclick="confirmDarJuegoStep1()">Confirmar, terminar el juego</button>
+    <button class="modal-close-btn" onclick="closeDarJuegoModal()">Cancelar</button>
+  `;
+  document.getElementById('darJuegoModal').classList.add('visible');
+}
+
+function closeDarJuegoModal() {
+  document.getElementById('darJuegoModal').classList.remove('visible');
+}
+
+function confirmDarJuegoStep1() {
+  const modal = document.getElementById('darJuegoModalContent');
+  modal.innerHTML = `
+    <h3>¿Qué equipo gana este juego?</h3>
+    <p style="color:var(--chalk-dim); font-size:0.85rem; margin-bottom:16px;">
+      Marcador actual: ${state.teamA.name} ${getTeamTotalThisJuego('A')} — ${getTeamTotalThisJuego('B')} ${state.teamB.name}
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="primary-action" style="margin-top:0;" onclick="finalizeDarJuego('A')">${escapeHtmlApp(state.teamA.name)}</button>
+      <button class="primary-action" style="margin-top:0;" onclick="finalizeDarJuego('B')">${escapeHtmlApp(state.teamB.name)}</button>
+    </div>
+    <button class="modal-close-btn" onclick="closeDarJuegoModal()">Cancelar</button>
+  `;
+}
+
+function finalizeDarJuego(winnerTeam) {
+  closeDarJuegoModal();
+  // Discard the in-progress, incomplete round entirely (per the rule: unfinished throws don't count)
+  state.currentRoundThrows = [];
+
+  const totalA = getTeamTotalThisJuego('A');
+  const totalB = getTeamTotalThisJuego('B');
+  const givingTeam = winnerTeam === 'A' ? 'B' : 'A';
+  const givingTeamName = givingTeam === 'A' ? state.teamA.name : state.teamB.name;
+
+  endJuego(winnerTeam, totalA, totalB, { dadoPor: givingTeamName });
 }
 
 function updatePartialScoreFlash() {
@@ -958,17 +1014,31 @@ function renderLiveView(live) {
     `).join('');
   }
 }
-function endJuego(winnerTeam, totalA, totalB) {
+function endJuego(winnerTeam, totalA, totalB, options) {
+  options = options || {};
   state.juegosGanados[winnerTeam]++;
   const allThrowsThisJuego = state.rounds.flatMap(r => r.throws);
-  state.juegoHistory.push({ winner: winnerTeam, scoreA: totalA, scoreB: totalB, rounds: state.rounds.slice() });
+  state.juegoHistory.push({
+    winner: winnerTeam, scoreA: totalA, scoreB: totalB,
+    rounds: state.rounds.slice(),
+    dadoPor: options.dadoPor || null
+  });
 
-  saveJuegoToFirebase(winnerTeam, totalA, totalB);
+  saveJuegoToFirebase(winnerTeam, totalA, totalB, options.dadoPor || null);
 
   const winnerName = winnerTeam === 'A' ? state.teamA.name : state.teamB.name;
   document.getElementById('jrPartidaNum').textContent = state.partidaNum;
   document.getElementById('jrWinnerName').textContent = `Gana ${winnerName}`;
   document.getElementById('jrScoreText').textContent = `${totalA} - ${totalB}`;
+
+  const dadoPorEl = document.getElementById('jrDadoPorNote');
+  if (options.dadoPor) {
+    dadoPorEl.style.display = 'block';
+    dadoPorEl.textContent = `🏳️ ${options.dadoPor} ha dado el juego`;
+  } else {
+    dadoPorEl.style.display = 'none';
+  }
+
   renderGameHistoryStrip('jrHistoryStrip');
   renderMvpBanner('jrMvpContainer', allThrowsThisJuego);
 
@@ -978,7 +1048,7 @@ function endJuego(winnerTeam, totalA, totalB) {
   showScreen('screen-juego-result');
 }
 
-async function saveJuegoToFirebase(winnerTeam, totalA, totalB) {
+async function saveJuegoToFirebase(winnerTeam, totalA, totalB, dadoPor) {
   try {
     await db.ref('partidas/' + state.partidaNum).update({
       numero: state.partidaNum,
@@ -994,7 +1064,8 @@ async function saveJuegoToFirebase(winnerTeam, totalA, totalB) {
       numero: state.juegoNum,
       winner: winnerTeam,
       totalA, totalB,
-      rounds: state.rounds
+      rounds: state.rounds,
+      dadoPor: dadoPor || null
     });
   } catch (e) {
     console.error('Error guardando juego', e);
@@ -1197,9 +1268,12 @@ function showPartidaDetail(p) {
   const juegos = p.juegos ? Object.values(p.juegos) : [];
 
   let juegosHtml = juegos.map(j => `
-    <div class="juego-detail-row">
-      <span>Juego ${j.numero}</span>
-      <span style="color:var(--gold); font-weight:700;">${j.totalA} - ${j.totalB}</span>
+    <div class="juego-detail-row" style="flex-direction:column; align-items:flex-start; gap:2px;">
+      <div style="display:flex; justify-content:space-between; width:100%;">
+        <span>Juego ${j.numero}</span>
+        <span style="color:var(--gold); font-weight:700;">${j.totalA} - ${j.totalB}</span>
+      </div>
+      ${j.dadoPor ? `<span style="font-size:0.68rem; color:var(--chalk-dim); font-style:italic;">🏳️ ${escapeHtmlApp(j.dadoPor)} dio el juego</span>` : ''}
     </div>
   `).join('') || '<p style="color:var(--chalk-dim); font-size:0.85rem;">Sin juegos registrados todavía.</p>';
 
