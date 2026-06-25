@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bolos a 3 Tablones</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22Bolos%203%20Tablones%22,%22short_name%22:%22Bolos%22,%22display%22:%22standalone%22,%22background_color%22:%22%232b1d12%22,%22theme_color%22:%22%232b1d12%22}">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+  :root {
+    --wood-dark: #2b1d12;
+    --wood-mid: #5a3d24;
+    --wood-light: #8a6239;
+    --bark: #1c1209;
+    --chalk: #f4ead8;
+    --chalk-dim: #cdbe9f;
+    --moss: #5c7a4f;
+    --rust: #a8472f;
+    --gold: #c9982f;
+    --shadow-deep: rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bark);
+    color: var(--chalk);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse at top, rgba(138,98,57,0.15), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0px, transparent 2px, transparent 40px, rgba(0,0,0,0.08) 42px);
+  }
+
+  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ===== Shared header ===== */
+  .app-header {
+    background: linear-gradient(180deg, var(--wood-dark), var(--bark));
+    padding: 18px 16px 14px;
+    text-align: center;
+    border-bottom: 3px solid var(--gold);
+    position: relative;
+  }
+
+  .app-header .eyebrow {
+    font-family: 'Courier New', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--chalk);
+  }
+
+  .app-header .sub {
+    font-size: 0.72rem;
+    color: var(--chalk-dim);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  .back-btn {
+    position: absolute;
+    top: 18px;
+    left: 14px;
+    background: none;
+    border: 1.5px solid var(--gold);
+    color: var(--gold);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sync-dot {
+    position: absolute;
+    top: 20px;
+    right: 16px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--moss);
+    box-shadow: 0 0 6px var(--moss);
+  }
+  .sync-dot.offline { background: var(--rust); box-shadow: 0 0 6px var(--rust); }
+
+  .content {
+    flex: 1;
+    padding: 20px 16px 100px;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ===== Home screen ===== */
+  .home-hero {
+    text-align: center;
+    padding: 30px 10px 10px;
+  }
+
+  .bolo-icon-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .bolo-pin {
+    width: 14px;
+    height: 30px;
+    background: linear-gradient(180deg, var(--chalk), var(--chalk-dim));
+    border-radius: 7px 7px 3px 3px;
+    box-shadow: inset -2px 0 4px rgba(0,0,0,0.2);
+  }
+
+  .home-hero h2 {
+    font-size: 1.7rem;
+    color: var(--chalk);
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+
+  .home-hero p {
+    color: var(--chalk-dim);
+    font-size: 0.85rem;
+    font-style: italic;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .menu-list { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+
+  .menu-btn {
+    background: linear-gradient(135deg, var(--wood-mid), var(--wood-dark));
+    border: 1px solid var(--wood-light);
+    border-radius: 10px;
+    padding: 18px 20px;
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 1.05rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 10px var(--shadow-deep);
+    transition: transform 0.1s;
+  }
+  .menu-btn:active { transform: scale(0.98); }
+
+  .menu-btn .icon { font-size: 1.6rem; flex-shrink: 0; }
+  .menu-btn .label-block { flex: 1; }
+  .menu-btn .label-block strong { display: block; font-size: 1.02rem; }
+  .menu-btn .label-block span { display: block; font-size: 0.7rem; color: var(--chalk-dim); font-style: italic; margin-top: 2px; }
+
+  .menu-btn.primary { border-color: var(--gold); background: linear-gradient(135deg, #6b4a2a, var(--wood-dark)); }
+
+  /* ===== Forms / setup ===== */
+  .field-group { margin-bottom: 18px; }
+  .field-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--wood-light);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .stepper button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1.5px solid var(--gold);
+    background: var(--wood-dark);
+    color: var(--gold);
+    font-size: 1.3rem;
+    cursor: pointer;
+  }
+
+  .stepper .count {
+    font-size: 1.8rem;
+    font-weight: 700;
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .text-input {
+    width: 100%;
+    padding: 13px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--wood-light);
+    border-radius: 8px;
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  .text-input::placeholder { color: rgba(244,234,216,0.35); }
+
+  .player-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .player-order-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--wood-mid);
+    color: var(--gold);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .responsible-tag {
+    font-size: 0.6rem;
+    color: var(--gold);
+    font-style: italic;
+    margin-top: 6px;
+    padding-left: 40px;
+  }
+
+  .team-setup-block {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--wood-mid);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .team-setup-block h3 {
+    font-size: 0.95rem;
+    color: var(--chalk);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .team-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .team-color-dot.a { background: var(--rust); }
+  .team-color-dot.b { background: var(--moss); }
+
+  .primary-action {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--gold), #a87a22);
+    color: var(--bark);
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    margin-top: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .primary-action:disabled { opacity: 0.4; }
+
+  .secondary-action {
+    width: 100%;
+    padding: 14px;
+    background: none;
+    border: 1.5px solid var(--wood-light);
+    color: var(--chalk-dim);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  /* ===== Coin toss ===== */
+  .coin-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 50px 10px;
+  }
+
+  .coin {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e8c873, var(--gold) 60%, #8a6420);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    box-shadow: 0 8px 24px var(--shadow-deep), inset 0 -6px 14px rgba(0,0,0,0.25);
+    border: 4px solid #8a6420;
+    margin-bottom: 30px;
+    transition: transform 0.15s;
+  }
+
+  .coin.flipping {
+    animation: coinflip 1.4s ease-out;
+  }
+
+  @keyframes coinflip {
+    0% { transform: rotateY(0) scale(1); }
+    20% { transform: rotateY(720deg) scale(1.1); }
+    50% { transform: rotateY(1800deg) scale(1.15); }
+    80% { transform: rotateY(2880deg) scale(1.05); }
+    100% { transform: rotateY(3600deg) scale(1); }
+  }
+
+  .coin-call-row {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  .coin-call-btn {
+    flex: 1;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--wood-light);
+    background: rgba(255,255,255,0.04);
+    color: var(--chalk);
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .coin-call-btn.selected { border-color: var(--gold); background: rgba(201,152,47,0.18); }
+
+  .coin-result-text {
+    text-align: center;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--chalk-dim);
+    min-height: 60px;
+  }
+  .coin-result-text strong { color: var(--gold); }
+
+  /* ===== Live game / marcador ===== */
+  .scoreboard {
+    background: linear-gradient(180deg, var(--wood-dark), var(--bark));
+    border: 1px solid var(--wood-light);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+
+  .sb-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+  }
+
+  .sb-team-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sb-score {
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+  }
+
+  .sb-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 0; }
+
+  .sb-meta {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--chalk-dim);
+    margin-top: 10px;
+    font-style: italic;
+    letter-spacing: 0.03em;
+  }
+
+  .llevar-banner {
+    text-align: center;
+    background: rgba(201,152,47,0.12);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 8px;
+    margin-top: 10px;
+    font-size: 0.78rem;
+    color: var(--gold);
+  }
+
+  .turn-card {
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid var(--gold);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 18px;
+  }
+
+  .turn-team-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--chalk-dim);
+    margin-bottom: 8px;
+  }
+
+  .turn-player-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--chalk);
+    margin-bottom: 4px;
+  }
+
+  .turn-direction {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 6px;
+  }
+  .turn-direction.arriba { background: rgba(168,71,47,0.25); color: #e89a85; }
+  .turn-direction.abajo { background: rgba(92,122,79,0.25); color: #a8d695; }
+
+  .pins-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .pins-grid.seven { grid-template-columns: repeat(4, 1fr); }
+
+  .pin-btn {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    border: 1.5px solid var(--wood-light);
+    background: linear-gradient(160deg, var(--wood-mid), var(--wood-dark));
+    color: var(--chalk);
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pin-btn:active { background: var(--gold); color: var(--bark); transform: scale(0.93); }
+
+  .pin-btn.four-pin { border-color: var(--gold); position: relative; }
+  .pin-btn.four-pin::after {
+    content: '★';
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 0.55rem;
+    color: var(--gold);
+  }
+
+  .round-log {
+    margin-top: 18px;
+  }
+
+  .round-log-title {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--chalk-dim);
+    margin-bottom: 10px;
+  }
+
+  .log-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+  }
+
+  .log-entry .name { color: var(--chalk); }
+  .log-entry .val { color: var(--gold); font-weight: 700; font-family: 'Courier New', monospace; }
+
+  .game-history-strip {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .game-pill {
+    font-size: 0.65rem;
+    padding: 4px 10px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    color: var(--chalk-dim);
+  }
+  .game-pill.won-a { background: rgba(168,71,47,0.3); color: #e89a85; }
+  .game-pill.won-b { background: rgba(92,122,79,0.3); color: #a8d695; }
+
+  /* ===== End screens ===== */
+  .result-banner {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .result-banner .trophy { font-size: 3.5rem; margin-bottom: 14px; }
+  .result-banner h2 { font-size: 1.5rem; color: var(--gold); margin-bottom: 8px; }
+  .result-banner p { color: var(--chalk-dim); font-size: 0.9rem; }
+
+  /* ===== Stats ===== */
+  .stats-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 4px;
+  }
+
+  .stats-tab {
+    flex: 1;
+    padding: 9px 6px;
+    text-align: center;
+    border: none;
+    background: none;
+    color: var(--chalk-dim);
+    font-family: inherit;
+    font-size: 0.72rem;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .stats-tab.active { background: var(--gold); color: var(--bark); font-weight: 700; }
+
+  .partida-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--wood-mid);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .partida-card .pc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .partida-card .pc-num {
+    font-size: 0.65rem;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .partida-card .pc-date { font-size: 0.65rem; color: var(--chalk-dim); }
+
+  .partida-card .pc-teams {
+    font-size: 0.92rem;
+    color: var(--chalk);
+  }
+
+  .partida-card .pc-winner { color: var(--gold); font-weight: 700; }
+
+  .player-stat-card {
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .player-stat-card .ps-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .ps-metrics {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 12px;
+  }
+
+  .ps-metric .num { font-size: 1.3rem; font-weight: 700; color: var(--gold); font-family: 'Courier New', monospace; }
+  .ps-metric .lbl { font-size: 0.6rem; color: var(--chalk-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .histogram {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 60px;
+  }
+
+  .hist-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+  }
+
+  .hist-bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--gold), var(--wood-mid));
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+  }
+
+  .hist-label {
+    font-size: 0.55rem;
+    color: var(--chalk-dim);
+    margin-top: 3px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--chalk-dim);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+  .empty-state p { font-size: 0.88rem; font-style: italic; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--wood-dark);
+    color: var(--gold);
+    padding: 11px 20px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    border: 1px solid var(--gold);
+    z-index: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  .detail-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 500;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .detail-modal-overlay.visible { display: flex; }
+
+  .detail-modal {
+    background: var(--bark);
+    border-top: 2px solid var(--gold);
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px 18px 30px;
+  }
+
+  .detail-modal h3 { color: var(--gold); margin-bottom: 16px; font-size: 1.1rem; }
+  .modal-close-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 16px;
+    background: none;
+    border: 1px solid var(--wood-light);
+    color: var(--chalk-dim);
+    border-radius: 10px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .juego-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- SCREEN: HOME -->
+<!-- ============================================================ -->
+<div class="screen active" id="screen-home">
+  <div class="app-header">
+    <div class="sync-dot" id="syncDot"></div>
+    <div class="eyebrow">Merindades de Burgos</div>
+    <h1>Bolos a 3 Tablones</h1>
+    <div class="sub">marcador y estadísticas</div>
+  </div>
+  <div class="content">
+    <div class="home-hero">
+      <div class="bolo-icon-row">
+        <div class="bolo-pin"></div><div class="bolo-pin"></div><div class="bolo-pin"></div>
+      </div>
+    </div>
+    <div class="menu-list">
+      <button class="menu-btn primary" onclick="goToSetup()">
+        <span class="icon">🎯</span>
+        <span class="label-block"><strong>Nueva partida</strong><span>configurar equipos y empezar a tirar</span></span>
+      </button>
+      <button class="menu-btn" onclick="goToStats()">
+        <span class="icon">📊</span>
+        <span class="label-block"><strong>Estadísticas</strong><span>partidas, juegos y totales del día</span></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: SETUP (team config) -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-setup">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div class="eyebrow">Partida nº <span id="setupPartidaNum">1</span></div>
+    <h1>Configurar equipos</h1>
+  </div>
+  <div class="content">
+
+    <div class="team-setup-block">
+      <h3><span class="team-color-dot a"></span>Equipo A</h3>
+      <div class="field-group">
+        <span class="field-label">Número de jugadores</span>
+        <div class="stepper">
+          <button onclick="changePlayerCount('A',-1)">−</button>
+          <span class="count" id="countA">2</span>
+          <button onclick="changePlayerCount('A',1)">+</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Jugadores en orden de tirada</span>
+        <div id="playersA"></div>
+        <div class="responsible-tag">⭐ el último jugador es el "hombre responsable"</div>
+      </div>
+    </div>
+
+    <div class="team-setup-block">
+      <h3><span class="team-color-dot b"></span>Equipo B</h3>
+      <div class="field-group">
+        <span class="field-label">Número de jugadores</span>
+        <div class="stepper">
+          <button onclick="changePlayerCount('B',-1)">−</button>
+          <span class="count" id="countB">2</span>
+          <button onclick="changePlayerCount('B',1)">+</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Jugadores en orden de tirada</span>
+        <div id="playersB"></div>
+        <div class="responsible-tag">⭐ el último jugador es el "hombre responsable"</div>
+      </div>
+    </div>
+
+    <button class="primary-action" onclick="goToCoinToss()">Continuar al sorteo →</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: COIN TOSS -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-coin">
+  <div class="app-header">
+    <button class="back-btn" onclick="goToSetup()">←</button>
+    <div class="eyebrow">Juego <span id="coinJuegoNum">1</span></div>
+    <h1>Cara o cruz</h1>
+  </div>
+  <div class="content">
+    <div class="coin-wrap">
+      <div class="coin" id="coinEl">🪙</div>
+      <div class="coin-call-row">
+        <button class="coin-call-btn" id="callCaraBtn" onclick="selectCall('cara')">Cara</button>
+        <button class="coin-call-btn" id="callCruzBtn" onclick="selectCall('cruz')">Cruz</button>
+      </div>
+      <div class="coin-result-text" id="coinResultText">¿Quién llama, equipo A o equipo B? Elige cara o cruz para lanzar.</div>
+      <button class="primary-action" id="coinTossBtn" onclick="doCoinToss()" disabled>Lanzar moneda</button>
+      <button class="secondary-action" id="coinContinueBtn" style="display:none" onclick="startGame()">Empezar a tirar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: LIVE GAME -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-game">
+  <div class="app-header">
+    <button class="back-btn" onclick="confirmAbandon()">←</button>
+    <div class="sync-dot" id="syncDotGame"></div>
+    <div class="eyebrow">Partida <span id="gamePartidaNum">1</span> · Juego <span id="gameJuegoNum">1</span></div>
+    <h1 id="gameRoundLabel">Ronda 1</h1>
+  </div>
+  <div class="content">
+
+    <div class="scoreboard">
+      <div class="sb-row">
+        <span class="sb-team-name"><span class="team-color-dot a"></span><span id="sbNameA">Equipo A</span></span>
+        <span class="sb-score" id="sbScoreA">0</span>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-row">
+        <span class="sb-team-name"><span class="team-color-dot b"></span><span id="sbNameB">Equipo B</span></span>
+        <span class="sb-score" id="sbScoreB">0</span>
+      </div>
+      <div class="llevar-banner" id="llevarBanner" style="display:none"></div>
+      <div class="game-history-strip" id="gameHistoryStrip"></div>
+    </div>
+
+    <div class="turn-card" id="turnCard">
+      <div class="turn-team-label" id="turnTeamLabel">TIRA EQUIPO A</div>
+      <div class="turn-player-name" id="turnPlayerName">Jugador 1</div>
+      <span class="turn-direction arriba" id="turnDirection">Para arriba</span>
+    </div>
+
+    <div class="pins-grid" id="pinsGrid"></div>
+
+    <div class="round-log">
+      <div class="round-log-title" id="roundLogTitle">Tiradas de esta ronda</div>
+      <div id="roundLogEntries"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: GAME RESULT (won a "juego") -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-juego-result">
+  <div class="app-header">
+    <div class="eyebrow">Partida <span id="jrPartidaNum">1</span></div>
+    <h1>Resultado del juego</h1>
+  </div>
+  <div class="content">
+    <div class="result-banner">
+      <div class="trophy">🏆</div>
+      <h2 id="jrWinnerName">Equipo de Joseba</h2>
+      <p id="jrScoreText">9 - 6</p>
+    </div>
+    <div class="game-history-strip" id="jrHistoryStrip"></div>
+    <button class="primary-action" id="jrContinueBtn" onclick="continueAfterJuego()">Siguiente juego →</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: PARTIDA RESULT (won the match) -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-partida-result">
+  <div class="app-header">
+    <h1>¡Partida terminada!</h1>
+  </div>
+  <div class="content">
+    <div class="result-banner">
+      <div class="trophy">🥇</div>
+      <h2 id="prWinnerName">Equipo de Joseba</h2>
+      <p id="prScoreText">Gana la partida 2-1</p>
+    </div>
+    <div class="game-history-strip" id="prHistoryStrip"></div>
+    <button class="primary-action" onclick="goHome()">Volver al inicio</button>
+    <button class="secondary-action" onclick="goToStatsPartida()">Ver estadísticas de esta partida</button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN: STATS -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-stats">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h1>Estadísticas</h1>
+  </div>
+  <div class="content">
+    <div class="stats-tabs">
+      <button class="stats-tab active" onclick="showStatsTab('partidas', this)">Partidas</button>
+      <button class="stats-tab" onclick="showStatsTab('totales', this)">Totales del día</button>
+    </div>
+
+    <div id="statsTabPartidas"></div>
+    <div id="statsTabTotales" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Modal for partida/juego detail -->
+<div class="detail-modal-overlay" id="detailModal">
+  <div class="detail-modal" id="detailModalContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
